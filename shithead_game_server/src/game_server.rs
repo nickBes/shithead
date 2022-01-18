@@ -194,6 +194,7 @@ impl GameServerState {
                             })
                         })
                         .collect(),
+                        owner_id: lobby.owner_id(),
                 }
             })
             .collect()
@@ -281,6 +282,7 @@ pub struct ExposedLobbyInfo {
     pub name: String,
     pub id: LobbyId,
     pub players: Vec<ExposedLobbyPlayerInfo>,
+    pub owner_id: ClientId,
 }
 
 /// The information about a lobby player that is exposed to the clients.

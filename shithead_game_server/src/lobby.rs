@@ -77,7 +77,7 @@ pub struct Lobby {
     name: String,
     state: LobbyState,
     deck: DashSet<CardId>,
-    owner: ClientId,
+    owner_id: ClientId,
     players: DashMap<ClientId, LobbyPlayer>,
     pub broadcast_messages_sender: broadcast::Sender<ServerMessage>,
 }
@@ -96,7 +96,7 @@ impl Lobby {
         let (broadcast_messages_sender, _) = broadcast::channel(BROADCAST_CHANNEL_CAPACITY);
         Self {
             state: LobbyState::Waiting,
-            owner: owner_id,
+            owner_id,
             name,
             deck,
             players,
@@ -124,6 +124,11 @@ impl Lobby {
         &self.name
     }
 
+    /// The id of the owner.
+    pub fn owner_id(&self)->ClientId{
+        self.owner_id
+    }
+
     pub fn player_ids<'a>(&'a self) -> impl Iterator<Item = ClientId> + 'a {
         self.players.iter().map(|entry| *entry.key())
     }
@@ -144,7 +149,7 @@ impl Lobby {
         self.players.remove(&player_id);
 
         // if the removed player was the owner
-        if player_id == self.owner {
+        if player_id == self.owner_id {
             match self.players.iter().next() {
                 None => {
                     // if there are no players left
@@ -152,7 +157,7 @@ impl Lobby {
                 }
                 Some(new_owner_entry) => {
                     let new_owner_id = *new_owner_entry.key();
-                    self.owner = new_owner_id;
+                    self.owner_id = new_owner_id;
                     RemovePlayerFromLobbyResult::NewOwner(new_owner_id)
                 }
             }
