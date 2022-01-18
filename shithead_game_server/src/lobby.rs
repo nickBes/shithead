@@ -40,8 +40,8 @@ impl CardsById {
     }
 
     /// Returns a card given its id
-    pub fn get_card(&self, id: CardId) -> Card {
-        self.cards_by_id[id.0]
+    pub fn get_card(&self, card_id: CardId) -> Card {
+        self.cards_by_id[card_id.0]
     }
 }
 
@@ -79,18 +79,18 @@ pub struct Lobby {
 
 impl Lobby {
     /// Creates a new lobby with the given name and owner.
-    pub fn new(name: String, owner: ClientId) -> Self {
+    pub fn new(name: String, owner_id: ClientId) -> Self {
         let deck = DashSet::new();
         for index in 0..CARDS_BY_ID.cards_amount() {
             deck.insert(CardId(index));
         }
 
         let players = DashMap::new();
-        players.insert(owner, LobbyPlayer::without_any_cards());
+        players.insert(owner_id, LobbyPlayer::without_any_cards());
 
         Self {
             state: LobbyState::Waiting,
-            owner,
+            owner: owner_id,
             name,
             deck,
             players,
@@ -107,18 +107,47 @@ impl Lobby {
         self.state
     }
 
+    /// The name of the lobby.
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
     /// Adds a player to the lobby without checking performing any checks.
     /// The checks are done in `GameServerState::join_lobby`.
     ///
     /// The player starts with no cards at all, since assuming checks have been done, the lobby
     /// should be in the `LobbyState::Waiting` state, in which no players have cards.
-    pub fn add_player(&self, id: ClientId) {
-        self.players.insert(id, LobbyPlayer::without_any_cards());
+    pub fn add_player(&self, player_id: ClientId) {
+        self.players.insert(player_id, LobbyPlayer::without_any_cards());
     }
 
-    /// The name of the lobby.
-    pub fn name(&self) -> &str {
-        &self.name
+    /// Removes the player with the given id from the lobby, and moves make another player the
+    /// owner.
+    pub fn remove_player(&mut self, player_id: ClientId) -> RemovePlayerFromLobbyResult {
+        self.players.remove(&player_id);
+
+        // if the removed player was the owner
+        if player_id == self.owner {
+            match self.players.iter().next() {
+                None => {
+                    // if there are no players left
+                    RemovePlayerFromLobbyResult::LobbyNowEmpty
+                }
+                Some(new_owner_entry) => {
+                    let new_owner_id = *new_owner_entry.key();
+                    self.owner = new_owner_id;
+                    RemovePlayerFromLobbyResult::NewOwner(new_owner_id)
+                }
+            }
+        } else {
+            if self.players.is_empty() {
+                // the lobby is empty
+                RemovePlayerFromLobbyResult::LobbyNowEmpty
+            } else {
+                // the lobby is not empty and the owner hasn't changed
+                RemovePlayerFromLobbyResult::Ok
+            }
+        }
     }
 }
 
@@ -138,4 +167,11 @@ impl LobbyPlayer {
             three_down_cards: Vec::new(),
         }
     }
+}
+
+/// The result of removing a player from a lobby.
+pub enum RemovePlayerFromLobbyResult {
+    Ok,
+    NewOwner(ClientId),
+    LobbyNowEmpty,
 }

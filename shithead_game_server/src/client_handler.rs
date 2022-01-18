@@ -21,6 +21,7 @@ pub struct ClientHandler {
     websocket: WebSocketStream<TcpStream>,
     server_state: Arc<GameServerState>,
     broadcast_messages_sender: broadcast::Sender<ServerMessage>,
+    broadcast_messages_receiver: broadcast::Receiver<ServerMessage>,
     username: String,
     client_id: ClientId,
     lobby_id: Option<LobbyId>,
@@ -28,12 +29,21 @@ pub struct ClientHandler {
 impl ClientHandler {
     /// Handles a client by receiving messages from him and processing them, and by sending him
     /// broadcast messages.
-    pub async fn handle(&mut self) -> anyhow::Result<()> {
+    pub async fn handle_and_cleanup(&mut self) -> anyhow::Result<()> {
+        let result = self.try_handle().await;
+        self.cleanup()
+            .await
+            .context("failed to cleanup after handling client")?;
+        result
+    }
+
+    /// Handles the client and returns any errors that occured. Should not be called directly
+    /// because it doesn't call `ClientHandler::cleanup`. `ClientHandler::handle_and_cleanup`
+    /// should be used instead.
+    async fn try_handle(&mut self) -> anyhow::Result<()> {
         self.perform_handshake()
             .await
             .context("failed to perform handshake with client")?;
-
-        let mut broadcast_messages_receiver = self.broadcast_messages_sender.subscribe();
 
         loop {
             tokio::select! {
@@ -67,7 +77,7 @@ impl ClientHandler {
                         _ => return Err(ClientSentUnknwonMsgType(websocket_msg).into()),
                     }
                 },
-                broadcast_msg_recv_result = broadcast_messages_receiver.recv() => {
+                broadcast_msg_recv_result = self.broadcast_messages_receiver.recv() => {
                     // received a broadcast message
                     let broadcast_msg = broadcast_msg_recv_result.expect("the broadcast messages channel was closed");
                     self.send_message(&broadcast_msg).await.context("failed to send broadcast message to client")?;
@@ -150,6 +160,15 @@ impl ClientHandler {
         // just means there aren't any clients, which is not really a problem.
         let _ = self.broadcast_messages_sender.send(msg);
     }
+
+    /// Cleans up after the client once we're done handling him.
+    async fn cleanup(&mut self) -> anyhow::Result<()> {
+        if let Some(lobby_id) = self.lobby_id {
+            self.server_state
+                .remove_player_from_lobby(self.client_id, lobby_id);
+        }
+        Ok(())
+    }
 }
 
 /// Handles a new client that had just connected to the game server's tcp listener.
@@ -167,12 +186,13 @@ pub async fn handle_client(
 
     let mut game_client = ClientHandler {
         websocket,
-        broadcast_messages_sender,
         server_state,
         client_id: id,
+        broadcast_messages_receiver: broadcast_messages_sender.subscribe(),
         username: format!("user{}", id),
         lobby_id: None,
+        broadcast_messages_sender,
     };
 
-    game_client.handle().await
+    game_client.handle_and_cleanup().await
 }

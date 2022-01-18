@@ -9,7 +9,7 @@ use tokio::{net::TcpListener, sync::broadcast};
 
 use crate::{
     client_handler::handle_client,
-    lobby::{Lobby, LobbyId, LobbyState, MAX_PLAYERS_IN_LOBBY},
+    lobby::{Lobby, LobbyId, LobbyState, MAX_PLAYERS_IN_LOBBY, RemovePlayerFromLobbyResult},
     messages::ServerMessage,
 };
 
@@ -54,12 +54,12 @@ impl GameServerState {
     }
 
     /// Creates a new lobby with the given name and owner. Returns the id of the new lobby.
-    pub fn create_lobby(&self, name: String, owner: ClientId) -> LobbyId {
+    pub fn create_lobby(&self, name: String, owner_id: ClientId) -> LobbyId {
         let lobby_id = LobbyId::from_raw(
             self.next_lobby_id
                 .fetch_add(1, std::sync::atomic::Ordering::Relaxed),
         );
-        let lobby = Lobby::new(name, owner);
+        let lobby = Lobby::new(name, owner_id);
         self.lobbies.insert(lobby_id, lobby);
         lobby_id
     }
@@ -69,10 +69,10 @@ impl GameServerState {
     /// If the lobby is full, returns an error.
     /// If the game in the lobby has already started, returns an error.
     /// Otherwise adds the client to the list of players in the lobby, and returns `Ok(())`.
-    pub fn join_lobby(&self, client_id: ClientId, lobby: LobbyId) -> Result<(), JoinLobbyError> {
+    pub fn join_lobby(&self, player_id: ClientId, lobby_id: LobbyId) -> Result<(), JoinLobbyError> {
         let lobby = self
             .lobbies
-            .get(&lobby)
+            .get(&lobby_id)
             .ok_or(JoinLobbyError::NoSuchLobby)?;
         if lobby.players_amount() >= MAX_PLAYERS_IN_LOBBY {
             return Err(JoinLobbyError::LobbyFull);
@@ -81,9 +81,30 @@ impl GameServerState {
             return Err(JoinLobbyError::GameAlreadyStarted);
         }
 
-        lobby.add_player(client_id);
+        lobby.add_player(player_id);
 
         Ok(())
+    }
+
+    /// Removes a player from a lobby.
+    pub fn remove_player_from_lobby(&self, player_id: ClientId, lobby_id: LobbyId) {
+        let mut lobby = match self.lobbies.get_mut(&lobby_id) {
+            Some(lobby) => lobby,
+            None => {
+                // if the user is not really in this lobby, we don't need to do anything
+                return;
+            }
+        };
+        match lobby.remove_player(player_id){
+            RemovePlayerFromLobbyResult::Ok => {},
+            RemovePlayerFromLobbyResult::NewOwner(new_owner) => {
+                // TODO: notify all other players about the owner change.
+            },
+            RemovePlayerFromLobbyResult::LobbyNowEmpty => {
+                // the lobby is now empty, remove it
+                self.lobbies.remove(&lobby_id);
+            },
+        }
     }
 
     /// Returns a list of exposed information about each lobby.
