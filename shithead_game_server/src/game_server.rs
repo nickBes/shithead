@@ -25,6 +25,11 @@ impl std::fmt::Display for ClientId {
     }
 }
 
+#[derive(Debug)]
+pub struct ClientInfo {
+    username: String,
+}
+
 /// The state of the game server.
 /// Stores all information about lobbies, games, and everthing else server related.
 pub struct GameServerState {
@@ -34,7 +39,11 @@ pub struct GameServerState {
     /// The id of the next created lobby
     next_lobby_id: AtomicUsize,
 
+    /// The lobbies.
     lobbies: DashMap<LobbyId, Lobby>,
+
+    /// Information about all clients connected to the game server.
+    client_infos: DashMap<ClientId, ClientInfo>,
 
     /// The channel for sending broadcast messages to all clients.
     pub broadcast_messages_sender: broadcast::Sender<ServerMessage>,
@@ -46,6 +55,7 @@ impl GameServerState {
             next_client_id: AtomicUsize::new(0),
             next_lobby_id: AtomicUsize::new(0),
             lobbies: DashMap::new(),
+            client_infos: DashMap::new(),
             broadcast_messages_sender,
         }
     }
@@ -137,9 +147,35 @@ impl GameServerState {
                 ExposedLobbyInfo {
                     name: lobby.name().to_string(),
                     id: lobby_id,
+                    players: lobby
+                        .player_ids()
+                        .filter_map(|player_id| {
+                            Some(ExposedLobbyPlayerInfo {
+                                id: player_id,
+                                username: self.client_infos.get(&player_id)?.username.clone(),
+                            })
+                        })
+                        .collect(),
                 }
             })
             .collect()
+    }
+
+    /// Sets the username of the client with the given id.
+    pub fn set_username(&self, client_id: ClientId, new_username: String) {
+        let mut client_info = match self.client_infos.get_mut(&client_id) {
+            Some(client_info) => client_info,
+            None => {
+                // if there is no user with the given id, just do nothing
+                return;
+            }
+        };
+        client_info.username = new_username;
+    }
+
+    /// Removes the client from the list of connected clients.
+    pub fn remove_client(&self, client_id: ClientId) {
+        self.client_infos.remove(&client_id);
     }
 }
 
@@ -206,4 +242,12 @@ pub enum JoinLobbyError {
 pub struct ExposedLobbyInfo {
     pub name: String,
     pub id: LobbyId,
+    pub players: Vec<ExposedLobbyPlayerInfo>,
+}
+
+/// The information about a lobby player that is exposed to the clients.
+#[derive(Debug, Serialize, Clone)]
+pub struct ExposedLobbyPlayerInfo {
+    id: ClientId,
+    username: String,
 }

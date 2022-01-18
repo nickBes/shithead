@@ -3,7 +3,10 @@ use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use tokio::sync::broadcast;
 
-use crate::{game_server::{ClientId, BROADCAST_CHANNEL_CAPACITY}, messages::ServerMessage};
+use crate::{
+    game_server::{ClientId, BROADCAST_CHANNEL_CAPACITY},
+    messages::ServerMessage,
+};
 
 pub const MAX_PLAYERS_IN_LOBBY: usize = 6;
 
@@ -97,7 +100,7 @@ impl Lobby {
             name,
             deck,
             players,
-            broadcast_messages_sender
+            broadcast_messages_sender,
         }
     }
 
@@ -116,13 +119,18 @@ impl Lobby {
         &self.name
     }
 
+    pub fn player_ids<'a>(&'a self) -> impl Iterator<Item = ClientId> + 'a {
+        self.players.iter().map(|entry| *entry.key())
+    }
+
     /// Adds a player to the lobby without checking performing any checks.
     /// The checks are done in `GameServerState::join_lobby`.
     ///
     /// The player starts with no cards at all, since assuming checks have been done, the lobby
     /// should be in the `LobbyState::Waiting` state, in which no players have cards.
     pub fn add_player(&self, player_id: ClientId) {
-        self.players.insert(player_id, LobbyPlayer::without_any_cards());
+        self.players
+            .insert(player_id, LobbyPlayer::without_any_cards());
     }
 
     /// Removes the player with the given id from the lobby, and moves make another player the

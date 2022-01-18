@@ -22,7 +22,6 @@ pub struct ClientHandler {
     server_state: Arc<GameServerState>,
     broadcast_messages_sender: broadcast::Sender<ServerMessage>,
     broadcast_messages_receiver: broadcast::Receiver<ServerMessage>,
-    username: String,
     client_id: ClientId,
     lobby_id: Option<LobbyId>,
 }
@@ -109,7 +108,7 @@ impl ClientHandler {
     async fn handle_message(&mut self, msg: ClientMessage) -> anyhow::Result<()> {
         match msg {
             ClientMessage::Username(new_username) => {
-                self.username = new_username;
+                self.server_state.set_username(self.client_id, new_username);
             }
             ClientMessage::JoinLobby(lobby_id) => {
                 // if the client is already in a lobby
@@ -124,7 +123,7 @@ impl ClientHandler {
                     None => {
                         match self.server_state.join_lobby(self.client_id, lobby_id) {
                             Ok(broadcast_messages_sender) => {
-                                self.on_joined_lobby(lobby_id, broadcast_messages_sender);
+                                self.on_joined_lobby(lobby_id, broadcast_messages_sender).await?;
                             }
                             Err(err) => {
                                 // let the client know about the error that occured
@@ -198,10 +197,17 @@ impl ClientHandler {
 
     /// Cleans up after the client once we're done handling him.
     async fn cleanup(&mut self) -> anyhow::Result<()> {
+        // first remove the client from the lobby.
+        //
+        // it is important that we do this before removing the client from the list of connected
+        // client because if otherwise, during the time between removing it from from the list of
+        // connected clients and removing it from the lobby, there will be a lobby with a client
+        // that doesn't seem to exist, which doesn't make sense.
         if let Some(lobby_id) = self.lobby_id {
             self.server_state
                 .remove_player_from_lobby(self.client_id, lobby_id);
         }
+        self.server_state.remove_client(self.client_id);
         Ok(())
     }
 }
@@ -224,7 +230,6 @@ pub async fn handle_client(
         broadcast_messages_receiver: server_state.broadcast_messages_sender.subscribe(),
         broadcast_messages_sender: server_state.broadcast_messages_sender.clone(),
         server_state,
-        username: format!("user{}", id),
         lobby_id: None,
     };
 
