@@ -4,7 +4,6 @@ use anyhow::Context;
 use futures::{SinkExt, StreamExt};
 use log::{error, warn};
 use simple_logger::SimpleLogger;
-use thiserror::Error;
 use tokio::net::{TcpListener, TcpStream};
 use tokio_tungstenite::tungstenite::Message;
 
@@ -30,19 +29,19 @@ impl GameServer {
             state: Arc::new(GameServerState::new()),
         })
     }
-    pub async fn start(&mut self) -> Result<(), GameServerError> {
+    pub async fn start(&mut self) -> anyhow::Result<()> {
         loop {
             let (stream, addr) = match self.listener.accept().await {
                 Ok(res) => res,
                 Err(error) => {
-                    warn!("failed to accept client: {}", error);
+                    warn!("failed to accept client: {:?}", error);
                     continue;
                 }
             };
             let server_state = Arc::clone(&self.state);
             let _ = tokio::spawn(async move {
                 if let Err(error) = client_handler(server_state, stream, addr).await {
-                    warn!("failed to handle client: {}", error);
+                    warn!("failed to handle client: {:?}", error);
                 }
             });
         }
@@ -71,9 +70,6 @@ async fn client_handler(
     Ok(())
 }
 
-#[derive(Debug, Error)]
-enum GameServerError {}
-
 async fn run() -> anyhow::Result<()> {
     let mut game_server = GameServer::new()
         .await
@@ -91,6 +87,6 @@ async fn main() {
         .expect("failed to initialize logger");
 
     if let Err(error) = run().await {
-        error!("{}", error);
+        error!("{:?}", error);
     }
 }
