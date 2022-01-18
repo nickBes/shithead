@@ -112,7 +112,7 @@ impl GameServerState {
         }
 
         // get the username of the player.
-        // it's safe to unwrap here because there's no way that the player is not in the client 
+        // it's safe to unwrap here because there's no way that the player is not in the client
         // infos list. that's because the only place we remove it from the list is in the
         // `ClientHandler::cleanup` function, but there is no way this function is called after
         // the cleanup.
@@ -120,14 +120,16 @@ impl GameServerState {
 
         lobby.add_player(player_id);
 
-        if !lobby.is_empty(){
+        if !lobby.is_empty() {
             // if there are players in the lobby, let them know about the new client.
             // we can ignore the return value since we know it will be Ok(()), becuase the
             // lobby isn't empty, so we still have listeners
-            let _ = lobby.broadcast_messages_sender.send(ServerMessage::PlayerJoinedLobby(ExposedLobbyPlayerInfo{
-                id: player_id,
-                username,
-            }));
+            let _ = lobby
+                .broadcast_messages_sender
+                .send(ServerMessage::PlayerJoinedLobby(ExposedLobbyPlayerInfo {
+                    id: player_id,
+                    username,
+                }));
         }
 
         Ok(lobby.broadcast_messages_sender.clone())
@@ -172,6 +174,9 @@ impl GameServerState {
                 // the lobby is now empty, remove it
                 self.lobbies.remove(&lobby_id);
             }
+            RemovePlayerFromLobbyResult::PlayerWasntInLobby => {
+                // no need to notify anyone because the player wasn't even in the lobby
+            }
         }
     }
 
@@ -194,7 +199,7 @@ impl GameServerState {
                             })
                         })
                         .collect(),
-                        owner_id: lobby.owner_id(),
+                    owner_id: lobby.owner_id(),
                 }
             })
             .collect()
@@ -213,10 +218,13 @@ impl GameServerState {
     }
 
     /// Adds a new client to the list of connected clients, and generates a default username for it.
-    pub fn add_client(&self, client_id: ClientId){
-        self.client_infos.insert(client_id, ClientInfo{
-            username: format!("user{}", client_id),
-        });
+    pub fn add_client(&self, client_id: ClientId) {
+        self.client_infos.insert(
+            client_id,
+            ClientInfo {
+                username: format!("user{}", client_id),
+            },
+        );
     }
 
     /// Removes the client from the list of connected clients.

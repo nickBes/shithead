@@ -125,10 +125,11 @@ impl Lobby {
     }
 
     /// The id of the owner.
-    pub fn owner_id(&self)->ClientId{
+    pub fn owner_id(&self) -> ClientId {
         self.owner_id
     }
 
+    /// The ids of the players in the lobby.
     pub fn player_ids<'a>(&'a self) -> impl Iterator<Item = ClientId> + 'a {
         self.players.iter().map(|entry| *entry.key())
     }
@@ -146,7 +147,9 @@ impl Lobby {
     /// Removes the player with the given id from the lobby, and moves make another player the
     /// owner.
     pub fn remove_player(&mut self, player_id: ClientId) -> RemovePlayerFromLobbyResult {
-        self.players.remove(&player_id);
+        if self.players.remove(&player_id).is_none() {
+            return RemovePlayerFromLobbyResult::PlayerWasntInLobby;
+        }
 
         // if the removed player was the owner
         if player_id == self.owner_id {
@@ -196,4 +199,5 @@ pub enum RemovePlayerFromLobbyResult {
     Ok,
     NewOwner(ClientId),
     LobbyNowEmpty,
+    PlayerWasntInLobby,
 }
