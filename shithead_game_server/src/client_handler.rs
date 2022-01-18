@@ -141,6 +141,12 @@ impl ClientHandler {
                 self.on_joined_lobby(new_lobby_id, broadcast_messages_sender)
                     .await?;
             }
+            ClientMessage::GetLobbies => {
+                self.send_message(&ServerMessage::Lobbies(
+                    self.server_state.exposed_lobby_list(),
+                ))
+                .await?;
+            }
         }
         Ok(())
     }

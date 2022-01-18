@@ -19,13 +19,14 @@ pub enum ServerMessage {
 #[serde(rename_all = "camelCase")]
 pub enum ClientMessage {
     Username(String),
+    GetLobbies,
     JoinLobby(LobbyId),
     CreateLobby { name: String },
 }
 
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub enum InGameClientMessage {
+pub enum InLobbyClientMessage {
     ClickCard(ClickedCardLocation),
 }
 
