@@ -18,7 +18,7 @@ pub enum ClientMessage {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(tag = "location", rename_all = "camelCase")]
 pub enum ClickedCardLocation {
-    Deck,
+    Trash,
     #[serde(rename_all = "camelCase")]
     MyCards{ card_index: u32 },
 }

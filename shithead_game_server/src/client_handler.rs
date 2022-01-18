@@ -86,11 +86,12 @@ impl ClientHandler {
     async fn handle_message(&mut self, msg: ClientMessage) -> anyhow::Result<()> {
         match msg {
             ClientMessage::ClickCard(clicked_card) => match clicked_card {
-                ClickedCardLocation::Deck => {
+                ClickedCardLocation::Trash => {
                     self.send_broadcast_message(ServerMessage::ClickCard(clicked_card))
                         .await
                 }
                 ClickedCardLocation::MyCards { card_index } => {
+                    // this is currently just for testing purposes
                     if card_index > 3 {
                         self.send_broadcast_message(ServerMessage::ClickCard(clicked_card))
                             .await
