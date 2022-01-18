@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    game_server::{ClientId, ExposedLobbyInfo},
+    game_server::{ClientId, ExposedLobbyInfo, ExposedLobbyPlayerInfo},
     lobby::LobbyId,
 };
 
@@ -12,6 +12,21 @@ pub enum ServerMessage {
     Lobbies(Vec<ExposedLobbyInfo>),
     JoinLobby(LobbyId),
     Error(String),
+    PlayerJoinedLobby(ExposedLobbyPlayerInfo),
+    PlayerLeftLobby(ClientId),
+
+    // reserved for future use
+    #[serde(rename_all = "camelCase")]
+    LobbyOwnerChanged {
+        new_owner_id: ClientId,
+    },
+
+    // don't need the id of the previous owner because all the clients already know who the owner
+    // is.
+    OwnerLeftLobby {
+        new_owner_id: ClientId,
+    },
+
     ClickCard(ClickedCardLocation),
 }
 

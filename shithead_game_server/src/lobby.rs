@@ -3,7 +3,10 @@ use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use tokio::sync::broadcast;
 
-use crate::{game_server::{ClientId, BROADCAST_CHANNEL_CAPACITY}, messages::ServerMessage};
+use crate::{
+    game_server::{ClientId, BROADCAST_CHANNEL_CAPACITY},
+    messages::ServerMessage,
+};
 
 pub const MAX_PLAYERS_IN_LOBBY: usize = 6;
 
@@ -74,7 +77,7 @@ pub struct Lobby {
     name: String,
     state: LobbyState,
     deck: DashSet<CardId>,
-    owner: ClientId,
+    owner_id: ClientId,
     players: DashMap<ClientId, LobbyPlayer>,
     pub broadcast_messages_sender: broadcast::Sender<ServerMessage>,
 }
@@ -93,17 +96,22 @@ impl Lobby {
         let (broadcast_messages_sender, _) = broadcast::channel(BROADCAST_CHANNEL_CAPACITY);
         Self {
             state: LobbyState::Waiting,
-            owner: owner_id,
+            owner_id,
             name,
             deck,
             players,
-            broadcast_messages_sender
+            broadcast_messages_sender,
         }
     }
 
     /// The amount of players in the lobby.
     pub fn players_amount(&self) -> usize {
         self.players.len()
+    }
+
+    /// Is the lobby empty?
+    pub fn is_empty(&self) -> bool {
+        self.players.is_empty()
     }
 
     /// The current state of the lobby.
@@ -116,22 +124,35 @@ impl Lobby {
         &self.name
     }
 
+    /// The id of the owner.
+    pub fn owner_id(&self) -> ClientId {
+        self.owner_id
+    }
+
+    /// The ids of the players in the lobby.
+    pub fn player_ids<'a>(&'a self) -> impl Iterator<Item = ClientId> + 'a {
+        self.players.iter().map(|entry| *entry.key())
+    }
+
     /// Adds a player to the lobby without checking performing any checks.
     /// The checks are done in `GameServerState::join_lobby`.
     ///
     /// The player starts with no cards at all, since assuming checks have been done, the lobby
     /// should be in the `LobbyState::Waiting` state, in which no players have cards.
     pub fn add_player(&self, player_id: ClientId) {
-        self.players.insert(player_id, LobbyPlayer::without_any_cards());
+        self.players
+            .insert(player_id, LobbyPlayer::without_any_cards());
     }
 
     /// Removes the player with the given id from the lobby, and moves make another player the
     /// owner.
     pub fn remove_player(&mut self, player_id: ClientId) -> RemovePlayerFromLobbyResult {
-        self.players.remove(&player_id);
+        if self.players.remove(&player_id).is_none() {
+            return RemovePlayerFromLobbyResult::PlayerWasntInLobby;
+        }
 
         // if the removed player was the owner
-        if player_id == self.owner {
+        if player_id == self.owner_id {
             match self.players.iter().next() {
                 None => {
                     // if there are no players left
@@ -139,7 +160,7 @@ impl Lobby {
                 }
                 Some(new_owner_entry) => {
                     let new_owner_id = *new_owner_entry.key();
-                    self.owner = new_owner_id;
+                    self.owner_id = new_owner_id;
                     RemovePlayerFromLobbyResult::NewOwner(new_owner_id)
                 }
             }
@@ -178,4 +199,5 @@ pub enum RemovePlayerFromLobbyResult {
     Ok,
     NewOwner(ClientId),
     LobbyNowEmpty,
+    PlayerWasntInLobby,
 }

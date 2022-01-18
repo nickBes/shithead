@@ -25,6 +25,11 @@ impl std::fmt::Display for ClientId {
     }
 }
 
+#[derive(Debug)]
+pub struct ClientInfo {
+    username: String,
+}
+
 /// The state of the game server.
 /// Stores all information about lobbies, games, and everthing else server related.
 pub struct GameServerState {
@@ -34,7 +39,11 @@ pub struct GameServerState {
     /// The id of the next created lobby
     next_lobby_id: AtomicUsize,
 
+    /// The lobbies.
     lobbies: DashMap<LobbyId, Lobby>,
+
+    /// Information about all clients connected to the game server.
+    client_infos: DashMap<ClientId, ClientInfo>,
 
     /// The channel for sending broadcast messages to all clients.
     pub broadcast_messages_sender: broadcast::Sender<ServerMessage>,
@@ -46,6 +55,7 @@ impl GameServerState {
             next_client_id: AtomicUsize::new(0),
             next_lobby_id: AtomicUsize::new(0),
             lobbies: DashMap::new(),
+            client_infos: DashMap::new(),
             broadcast_messages_sender,
         }
     }
@@ -83,8 +93,8 @@ impl GameServerState {
     /// If there is no lobby with the given id, returns an error.
     /// If the lobby is full, returns an error.
     /// If the game in the lobby has already started, returns an error.
-    /// Otherwise adds the client to the list of players in the lobby, and returns the lobby's
-    /// broadcase messages sender.
+    /// Otherwise adds the client to the list of players in the lobby, notifies the other clients
+    /// about the new player in the lobby, and returns the lobby's broadcase messages sender.
     pub fn join_lobby(
         &self,
         player_id: ClientId,
@@ -101,7 +111,23 @@ impl GameServerState {
             return Err(JoinLobbyError::GameAlreadyStarted);
         }
 
+        // get the username of the player.
+        // it's safe to unwrap here because there's no way that the player is not in the client
+        // infos list. that's because the only place we remove it from the list is in the
+        // `ClientHandler::cleanup` function, but there is no way this function is called after
+        // the cleanup.
+        let username = self.client_infos.get(&player_id).unwrap().username.clone();
+
         lobby.add_player(player_id);
+
+        // we can ignore the return value since we know it will be Ok(()), becuase the
+        // lobby can't be empty otherwise it wouldn't exist, so we must still have listeners
+        let _ = lobby
+            .broadcast_messages_sender
+            .send(ServerMessage::PlayerJoinedLobby(ExposedLobbyPlayerInfo {
+                id: player_id,
+                username,
+            }));
 
         Ok(lobby.broadcast_messages_sender.clone())
     }
@@ -115,14 +141,32 @@ impl GameServerState {
                 return;
             }
         };
+
         match lobby.remove_player(player_id) {
-            RemovePlayerFromLobbyResult::Ok => {}
-            RemovePlayerFromLobbyResult::NewOwner(new_owner) => {
-                // TODO: notify all other players about the owner change.
+            RemovePlayerFromLobbyResult::Ok => {
+                // let the other clients know that this player left the lobby
+                // we can ignore the return value since we know it will be Ok(()), becuase the
+                // lobby isn't empty, so we still have listeners
+                let _ = lobby
+                    .broadcast_messages_sender
+                    .send(ServerMessage::PlayerLeftLobby(player_id));
+            }
+            RemovePlayerFromLobbyResult::NewOwner(new_owner_id) => {
+                // let the other clients know that this player left the lobby, and about the new
+                // owner.
+                //
+                // we can ignore the return value since we know it will be Ok(()), becuase the
+                // lobby isn't empty, so we still have listeners.
+                let _ = lobby
+                    .broadcast_messages_sender
+                    .send(ServerMessage::OwnerLeftLobby { new_owner_id });
             }
             RemovePlayerFromLobbyResult::LobbyNowEmpty => {
                 // the lobby is now empty, remove it
                 self.lobbies.remove(&lobby_id);
+            }
+            RemovePlayerFromLobbyResult::PlayerWasntInLobby => {
+                // no need to notify anyone because the player wasn't even in the lobby
             }
         }
     }
@@ -137,9 +181,46 @@ impl GameServerState {
                 ExposedLobbyInfo {
                     name: lobby.name().to_string(),
                     id: lobby_id,
+                    players: lobby
+                        .player_ids()
+                        .filter_map(|player_id| {
+                            Some(ExposedLobbyPlayerInfo {
+                                id: player_id,
+                                username: self.client_infos.get(&player_id)?.username.clone(),
+                            })
+                        })
+                        .collect(),
+                    owner_id: lobby.owner_id(),
                 }
             })
             .collect()
+    }
+
+    /// Sets the username of the client with the given id.
+    pub fn set_username(&self, client_id: ClientId, new_username: String) {
+        let mut client_info = match self.client_infos.get_mut(&client_id) {
+            Some(client_info) => client_info,
+            None => {
+                // if there is no user with the given id, just do nothing
+                return;
+            }
+        };
+        client_info.username = new_username;
+    }
+
+    /// Adds a new client to the list of connected clients, and generates a default username for it.
+    pub fn add_client(&self, client_id: ClientId) {
+        self.client_infos.insert(
+            client_id,
+            ClientInfo {
+                username: format!("user{}", client_id),
+            },
+        );
+    }
+
+    /// Removes the client from the list of connected clients.
+    pub fn remove_client(&self, client_id: ClientId) {
+        self.client_infos.remove(&client_id);
     }
 }
 
@@ -206,4 +287,13 @@ pub enum JoinLobbyError {
 pub struct ExposedLobbyInfo {
     pub name: String,
     pub id: LobbyId,
+    pub players: Vec<ExposedLobbyPlayerInfo>,
+    pub owner_id: ClientId,
+}
+
+/// The information about a lobby player that is exposed to the clients.
+#[derive(Debug, Serialize, Clone)]
+pub struct ExposedLobbyPlayerInfo {
+    id: ClientId,
+    username: String,
 }
