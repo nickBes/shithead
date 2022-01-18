@@ -2,14 +2,14 @@ use std::{net::SocketAddr, sync::Arc};
 
 use anyhow::Context;
 use futures::{SinkExt, StreamExt};
-use serde::Serialize;
 use thiserror::Error;
 use tokio::{net::TcpStream, sync::broadcast};
 use tokio_tungstenite::{tungstenite::Message, WebSocketStream};
 
 use crate::{
-    game_server::{ClientId, GameServerState},
-    messages::{ClickedCardLocation, ClientMessage, ServerMessage},
+    game_server::{ClientId, GameServerState, JoinLobbyError},
+    lobby::LobbyId,
+    messages::{ClientMessage, ServerMessage},
 };
 
 #[derive(Debug, Error)]
@@ -21,17 +21,29 @@ pub struct ClientHandler {
     websocket: WebSocketStream<TcpStream>,
     server_state: Arc<GameServerState>,
     broadcast_messages_sender: broadcast::Sender<ServerMessage>,
-    id: ClientId,
+    broadcast_messages_receiver: broadcast::Receiver<ServerMessage>,
+    username: String,
+    client_id: ClientId,
+    lobby_id: Option<LobbyId>,
 }
 impl ClientHandler {
     /// Handles a client by receiving messages from him and processing them, and by sending him
     /// broadcast messages.
-    pub async fn handle(&mut self) -> anyhow::Result<()> {
+    pub async fn handle_and_cleanup(&mut self) -> anyhow::Result<()> {
+        let result = self.try_handle().await;
+        self.cleanup()
+            .await
+            .context("failed to cleanup after handling client")?;
+        result
+    }
+
+    /// Handles the client and returns any errors that occured. Should not be called directly
+    /// because it doesn't call `ClientHandler::cleanup`. `ClientHandler::handle_and_cleanup`
+    /// should be used instead.
+    async fn try_handle(&mut self) -> anyhow::Result<()> {
         self.perform_handshake()
             .await
             .context("failed to perform handshake with client")?;
-
-        let mut broadcast_messages_receiver = self.broadcast_messages_sender.subscribe();
 
         loop {
             tokio::select! {
@@ -65,7 +77,7 @@ impl ClientHandler {
                         _ => return Err(ClientSentUnknwonMsgType(websocket_msg).into()),
                     }
                 },
-                broadcast_msg_recv_result = broadcast_messages_receiver.recv() => {
+                broadcast_msg_recv_result = self.broadcast_messages_receiver.recv() => {
                     // received a broadcast message
                     let broadcast_msg = broadcast_msg_recv_result.expect("the broadcast messages channel was closed");
                     self.send_message(&broadcast_msg).await.context("failed to send broadcast message to client")?;
@@ -75,31 +87,85 @@ impl ClientHandler {
         Ok(())
     }
 
+    /// Performs a handshake with this client, and synchronizes data with him.
+    /// It sends the client its id, and a list of lobbies.
     async fn perform_handshake(&mut self) -> anyhow::Result<()> {
-        self.send_message(&ServerMessage::ClientId(self.id))
+        // send the client its id
+        self.send_message(&ServerMessage::ClientId(self.client_id))
             .await
             .context("failed to send the client its id")?;
+
+        // send the client a list of exposed lobby information
+        self.send_message(&ServerMessage::Lobbies(
+            self.server_state.exposed_lobby_list(),
+        ))
+        .await
+        .context("failed to send the list of lobbies to the client")?;
+
         Ok(())
     }
 
     /// Handles a message received from the client
     async fn handle_message(&mut self, msg: ClientMessage) -> anyhow::Result<()> {
         match msg {
-            ClientMessage::ClickCard(clicked_card) => match clicked_card {
-                ClickedCardLocation::Trash => {
-                    self.send_broadcast_message(ServerMessage::ClickCard(clicked_card))
-                        .await
-                }
-                ClickedCardLocation::MyCards { card_index } => {
-                    // this is currently just for testing purposes
-                    if card_index > 3 {
-                        self.send_broadcast_message(ServerMessage::ClickCard(clicked_card))
-                            .await
+            ClientMessage::Username(new_username) => {
+                self.username = new_username;
+            }
+            ClientMessage::JoinLobby(lobby_id) => {
+                // if the client is already in a lobby
+                match self.lobby_id {
+                    Some(_) => {
+                        // let the client know about the error that occured
+                        self.send_message(&ServerMessage::Error(
+                            JoinLobbyError::AlreadyInALobby.to_string(),
+                        ))
+                        .await?;
+                    }
+                    None => {
+                        match self.server_state.join_lobby(self.client_id, lobby_id) {
+                            Ok(broadcast_messages_sender) => {
+                                self.on_joined_lobby(lobby_id, broadcast_messages_sender);
+                            }
+                            Err(err) => {
+                                // let the client know about the error that occured
+                                self.send_message(&ServerMessage::Error(err.to_string()))
+                                    .await?;
+                            }
+                        }
                     }
                 }
-            },
+            }
+            ClientMessage::CreateLobby { name } => {
+                let (new_lobby_id, broadcast_messages_sender) =
+                    self.server_state.create_lobby(name, self.client_id);
+                self.on_joined_lobby(new_lobby_id, broadcast_messages_sender)
+                    .await?;
+            }
         }
         Ok(())
+    }
+
+    /// Updates the handler when the client joins a new lobby.
+    async fn on_joined_lobby(
+        &mut self,
+        new_lobby_id: LobbyId,
+        lobby_broadcast_messages_sender: broadcast::Sender<ServerMessage>,
+    ) -> anyhow::Result<()> {
+        self.lobby_id = Some(new_lobby_id);
+        self.broadcast_messages_receiver = lobby_broadcast_messages_sender.subscribe();
+        self.broadcast_messages_sender = lobby_broadcast_messages_sender;
+
+        // let the client know that he's now in the lobby
+        self.send_message(&ServerMessage::JoinLobby(new_lobby_id))
+            .await?;
+
+        Ok(())
+    }
+
+    async fn on_leave_lobby(&mut self) {
+        self.lobby_id = None;
+        self.broadcast_messages_sender = self.server_state.broadcast_messages_sender.clone();
+        self.broadcast_messages_receiver = self.server_state.broadcast_messages_sender.subscribe();
     }
 
     /// Sends a message to the client
@@ -123,12 +189,20 @@ impl ClientHandler {
         // just means there aren't any clients, which is not really a problem.
         let _ = self.broadcast_messages_sender.send(msg);
     }
+
+    /// Cleans up after the client once we're done handling him.
+    async fn cleanup(&mut self) -> anyhow::Result<()> {
+        if let Some(lobby_id) = self.lobby_id {
+            self.server_state
+                .remove_player_from_lobby(self.client_id, lobby_id);
+        }
+        Ok(())
+    }
 }
 
 /// Handles a new client that had just connected to the game server's tcp listener.
 pub async fn handle_client(
     server_state: Arc<GameServerState>,
-    broadcast_messages_sender: broadcast::Sender<ServerMessage>,
     stream: TcpStream,
     addr: SocketAddr,
 ) -> anyhow::Result<()> {
@@ -136,12 +210,17 @@ pub async fn handle_client(
         .await
         .context("failed to accept websocket client {}")?;
 
+    let id = server_state.next_client_id();
+
     let mut game_client = ClientHandler {
         websocket,
-        broadcast_messages_sender,
-        id: server_state.next_client_id(),
+        client_id: id,
+        broadcast_messages_receiver: server_state.broadcast_messages_sender.subscribe(),
+        broadcast_messages_sender: server_state.broadcast_messages_sender.clone(),
         server_state,
+        username: format!("user{}", id),
+        lobby_id: None,
     };
 
-    game_client.handle().await
+    game_client.handle_and_cleanup().await
 }
