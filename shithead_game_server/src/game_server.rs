@@ -93,8 +93,8 @@ impl GameServerState {
     /// If there is no lobby with the given id, returns an error.
     /// If the lobby is full, returns an error.
     /// If the game in the lobby has already started, returns an error.
-    /// Otherwise adds the client to the list of players in the lobby, and returns the lobby's
-    /// broadcase messages sender.
+    /// Otherwise adds the client to the list of players in the lobby, notifies the other clients
+    /// about the new player in the lobby, and returns the lobby's broadcase messages sender.
     pub fn join_lobby(
         &self,
         player_id: ClientId,
@@ -111,7 +111,24 @@ impl GameServerState {
             return Err(JoinLobbyError::GameAlreadyStarted);
         }
 
+        // get the username of the player.
+        // it's safe to unwrap here because there's no way that the player is not in the client 
+        // infos list. that's because the only place we remove it from the list is in the
+        // `ClientHandler::cleanup` function, but there is no way this function is called after
+        // the cleanup.
+        let username = self.client_infos.get(&player_id).unwrap().username.clone();
+
         lobby.add_player(player_id);
+
+        if !lobby.is_empty(){
+            // if there are players in the lobby, let them know about the new client.
+            // we can ignore the return value since we know it will be Ok(()), becuase the
+            // lobby isn't empty, so we still have listeners
+            let _ = lobby.broadcast_messages_sender.send(ServerMessage::PlayerJoinedLobby(ExposedLobbyPlayerInfo{
+                id: player_id,
+                username,
+            }));
+        }
 
         Ok(lobby.broadcast_messages_sender.clone())
     }
@@ -125,10 +142,31 @@ impl GameServerState {
                 return;
             }
         };
+
         match lobby.remove_player(player_id) {
-            RemovePlayerFromLobbyResult::Ok => {}
+            RemovePlayerFromLobbyResult::Ok => {
+                // let the other clients know that this player left the lobby
+                // we can ignore the return value since we know it will be Ok(()), becuase the
+                // lobby isn't empty, so we still have listeners
+                let _ = lobby
+                    .broadcast_messages_sender
+                    .send(ServerMessage::PlayerLeftLobby(player_id));
+            }
             RemovePlayerFromLobbyResult::NewOwner(new_owner) => {
-                // TODO: notify all other players about the owner change.
+                // let the other clients know that this player left the lobby, and about the new
+                // order.
+                //
+                // we can ignore the return value since we know it will be Ok(()), becuase the
+                // lobby isn't empty, so we still have listeners
+                //
+                // we must first notify the clients about the new owner before removing the client
+                // so that there won't be a point where there is no owner.
+                let _ = lobby
+                    .broadcast_messages_sender
+                    .send(ServerMessage::LobbyOwnerChanged { new_owner });
+                let _ = lobby
+                    .broadcast_messages_sender
+                    .send(ServerMessage::PlayerLeftLobby(player_id));
             }
             RemovePlayerFromLobbyResult::LobbyNowEmpty => {
                 // the lobby is now empty, remove it

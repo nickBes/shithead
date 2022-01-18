@@ -109,6 +109,11 @@ impl Lobby {
         self.players.len()
     }
 
+    /// Is the lobby empty?
+    pub fn is_empty(&self) -> bool {
+        self.players.is_empty()
+    }
+
     /// The current state of the lobby.
     pub fn state(&self) -> LobbyState {
         self.state
