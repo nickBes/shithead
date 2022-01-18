@@ -10,7 +10,7 @@ use crate::{client_handler::handle_client, messages::ServerMessage};
 const SERVER_BIND_ADDR: &str = "0.0.0.0:7522";
 const BROADCAST_CHANNEL_CAPACITY: usize = 200;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Clone, Copy)]
 #[serde(transparent)]
 pub struct ClientId(usize);
 
