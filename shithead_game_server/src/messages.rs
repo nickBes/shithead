@@ -12,6 +12,7 @@ pub enum ServerMessage {
     Lobbies(Vec<ExposedLobbyInfo>),
     JoinLobby(LobbyId),
     Error(String),
+    ClickCard(ClickedCardLocation),
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -20,12 +21,6 @@ pub enum ClientMessage {
     Username(String),
     JoinLobby(LobbyId),
     CreateLobby { name: String },
-}
-
-#[derive(Debug, Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub enum InGameServerMessage {
-    ClickCard(ClickedCardLocation),
 }
 
 #[derive(Debug, Deserialize, Clone)]

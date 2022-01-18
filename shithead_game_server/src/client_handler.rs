@@ -7,7 +7,7 @@ use tokio::{net::TcpStream, sync::broadcast};
 use tokio_tungstenite::{tungstenite::Message, WebSocketStream};
 
 use crate::{
-    game_server::{ClientId, GameServerState},
+    game_server::{ClientId, GameServerState, JoinLobbyError},
     lobby::LobbyId,
     messages::{ClientMessage, ServerMessage},
 };
@@ -112,31 +112,60 @@ impl ClientHandler {
                 self.username = new_username;
             }
             ClientMessage::JoinLobby(lobby_id) => {
-                match self.server_state.join_lobby(self.client_id, lobby_id) {
-                    Ok(()) => {
-                        self.lobby_id = Some(lobby_id);
-
-                        // let the client know that he's now in the lobby
-                        self.send_message(&ServerMessage::JoinLobby(lobby_id))
-                            .await?;
-                    }
-                    Err(err) => {
+                // if the client is already in a lobby
+                match self.lobby_id {
+                    Some(_) => {
                         // let the client know about the error that occured
-                        self.send_message(&ServerMessage::Error(err.to_string()))
-                            .await?;
+                        self.send_message(&ServerMessage::Error(
+                            JoinLobbyError::AlreadyInALobby.to_string(),
+                        ))
+                        .await?;
+                    }
+                    None => {
+                        match self.server_state.join_lobby(self.client_id, lobby_id) {
+                            Ok(broadcast_messages_sender) => {
+                                self.on_joined_lobby(lobby_id, broadcast_messages_sender);
+                            }
+                            Err(err) => {
+                                // let the client know about the error that occured
+                                self.send_message(&ServerMessage::Error(err.to_string()))
+                                    .await?;
+                            }
+                        }
                     }
                 }
             }
             ClientMessage::CreateLobby { name } => {
-                let new_lobby_id = self.server_state.create_lobby(name, self.client_id);
-                self.lobby_id = Some(new_lobby_id);
-
-                // let the client know that he's now in the lobby
-                self.send_message(&ServerMessage::JoinLobby(new_lobby_id))
+                let (new_lobby_id, broadcast_messages_sender) =
+                    self.server_state.create_lobby(name, self.client_id);
+                self.on_joined_lobby(new_lobby_id, broadcast_messages_sender)
                     .await?;
             }
         }
         Ok(())
+    }
+
+    /// Updates the handler when the client joins a new lobby.
+    async fn on_joined_lobby(
+        &mut self,
+        new_lobby_id: LobbyId,
+        lobby_broadcast_messages_sender: broadcast::Sender<ServerMessage>,
+    ) -> anyhow::Result<()> {
+        self.lobby_id = Some(new_lobby_id);
+        self.broadcast_messages_receiver = lobby_broadcast_messages_sender.subscribe();
+        self.broadcast_messages_sender = lobby_broadcast_messages_sender;
+
+        // let the client know that he's now in the lobby
+        self.send_message(&ServerMessage::JoinLobby(new_lobby_id))
+            .await?;
+
+        Ok(())
+    }
+
+    async fn on_leave_lobby(&mut self) {
+        self.lobby_id = None;
+        self.broadcast_messages_sender = self.server_state.broadcast_messages_sender.clone();
+        self.broadcast_messages_receiver = self.server_state.broadcast_messages_sender.subscribe();
     }
 
     /// Sends a message to the client
@@ -174,7 +203,6 @@ impl ClientHandler {
 /// Handles a new client that had just connected to the game server's tcp listener.
 pub async fn handle_client(
     server_state: Arc<GameServerState>,
-    broadcast_messages_sender: broadcast::Sender<ServerMessage>,
     stream: TcpStream,
     addr: SocketAddr,
 ) -> anyhow::Result<()> {
@@ -186,12 +214,12 @@ pub async fn handle_client(
 
     let mut game_client = ClientHandler {
         websocket,
-        server_state,
         client_id: id,
-        broadcast_messages_receiver: broadcast_messages_sender.subscribe(),
+        broadcast_messages_receiver: server_state.broadcast_messages_sender.subscribe(),
+        broadcast_messages_sender: server_state.broadcast_messages_sender.clone(),
+        server_state,
         username: format!("user{}", id),
         lobby_id: None,
-        broadcast_messages_sender,
     };
 
     game_client.handle_and_cleanup().await

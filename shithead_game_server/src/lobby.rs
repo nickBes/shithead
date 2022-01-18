@@ -1,8 +1,9 @@
 use dashmap::{DashMap, DashSet};
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
+use tokio::sync::broadcast;
 
-use crate::game_server::ClientId;
+use crate::{game_server::{ClientId, BROADCAST_CHANNEL_CAPACITY}, messages::ServerMessage};
 
 pub const MAX_PLAYERS_IN_LOBBY: usize = 6;
 
@@ -68,13 +69,14 @@ pub enum LobbyState {
 }
 
 /// A game lobby
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
 pub struct Lobby {
     name: String,
     state: LobbyState,
     deck: DashSet<CardId>,
     owner: ClientId,
     players: DashMap<ClientId, LobbyPlayer>,
+    pub broadcast_messages_sender: broadcast::Sender<ServerMessage>,
 }
 
 impl Lobby {
@@ -88,12 +90,14 @@ impl Lobby {
         let players = DashMap::new();
         players.insert(owner_id, LobbyPlayer::without_any_cards());
 
+        let (broadcast_messages_sender, _) = broadcast::channel(BROADCAST_CHANNEL_CAPACITY);
         Self {
             state: LobbyState::Waiting,
             owner: owner_id,
             name,
             deck,
             players,
+            broadcast_messages_sender
         }
     }
 

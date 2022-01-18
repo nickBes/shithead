@@ -9,12 +9,12 @@ use tokio::{net::TcpListener, sync::broadcast};
 
 use crate::{
     client_handler::handle_client,
-    lobby::{Lobby, LobbyId, LobbyState, MAX_PLAYERS_IN_LOBBY, RemovePlayerFromLobbyResult},
+    lobby::{Lobby, LobbyId, LobbyState, RemovePlayerFromLobbyResult, MAX_PLAYERS_IN_LOBBY},
     messages::ServerMessage,
 };
 
 const SERVER_BIND_ADDR: &str = "0.0.0.0:7522";
-const BROADCAST_CHANNEL_CAPACITY: usize = 200;
+pub const BROADCAST_CHANNEL_CAPACITY: usize = 200;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Clone, Copy)]
 #[serde(transparent)]
@@ -35,13 +35,18 @@ pub struct GameServerState {
     next_lobby_id: AtomicUsize,
 
     lobbies: DashMap<LobbyId, Lobby>,
+
+    /// The channel for sending broadcast messages to all clients.
+    pub broadcast_messages_sender: broadcast::Sender<ServerMessage>,
 }
 impl GameServerState {
     pub fn new() -> Self {
+        let (broadcast_messages_sender, _) = broadcast::channel(BROADCAST_CHANNEL_CAPACITY);
         Self {
             next_client_id: AtomicUsize::new(0),
             next_lobby_id: AtomicUsize::new(0),
             lobbies: DashMap::new(),
+            broadcast_messages_sender,
         }
     }
 
@@ -53,23 +58,38 @@ impl GameServerState {
         )
     }
 
-    /// Creates a new lobby with the given name and owner. Returns the id of the new lobby.
-    pub fn create_lobby(&self, name: String, owner_id: ClientId) -> LobbyId {
+    /// Creates a new lobby with the given name and owner. Returns the id of the new lobby, and the
+    /// lobby's broadcast messages sender.
+    pub fn create_lobby(
+        &self,
+        name: String,
+        owner_id: ClientId,
+    ) -> (LobbyId, broadcast::Sender<ServerMessage>) {
         let lobby_id = LobbyId::from_raw(
             self.next_lobby_id
                 .fetch_add(1, std::sync::atomic::Ordering::Relaxed),
         );
         let lobby = Lobby::new(name, owner_id);
+
+        // save the broadcast_messages_sender before giving ownership of the lobby
+        let broadcast_messages_sender = lobby.broadcast_messages_sender.clone();
+
         self.lobbies.insert(lobby_id, lobby);
-        lobby_id
+
+        (lobby_id, broadcast_messages_sender)
     }
 
     /// Tries to add a player to a lobby.
     /// If there is no lobby with the given index, returns an error.
     /// If the lobby is full, returns an error.
     /// If the game in the lobby has already started, returns an error.
-    /// Otherwise adds the client to the list of players in the lobby, and returns `Ok(())`.
-    pub fn join_lobby(&self, player_id: ClientId, lobby_id: LobbyId) -> Result<(), JoinLobbyError> {
+    /// Otherwise adds the client to the list of players in the lobby, and returns the lobby's
+    /// broadcase messages sender.
+    pub fn join_lobby(
+        &self,
+        player_id: ClientId,
+        lobby_id: LobbyId,
+    ) -> Result<broadcast::Sender<ServerMessage>, JoinLobbyError> {
         let lobby = self
             .lobbies
             .get(&lobby_id)
@@ -83,7 +103,7 @@ impl GameServerState {
 
         lobby.add_player(player_id);
 
-        Ok(())
+        Ok(lobby.broadcast_messages_sender.clone())
     }
 
     /// Removes a player from a lobby.
@@ -95,15 +115,15 @@ impl GameServerState {
                 return;
             }
         };
-        match lobby.remove_player(player_id){
-            RemovePlayerFromLobbyResult::Ok => {},
+        match lobby.remove_player(player_id) {
+            RemovePlayerFromLobbyResult::Ok => {}
             RemovePlayerFromLobbyResult::NewOwner(new_owner) => {
                 // TODO: notify all other players about the owner change.
-            },
+            }
             RemovePlayerFromLobbyResult::LobbyNowEmpty => {
                 // the lobby is now empty, remove it
                 self.lobbies.remove(&lobby_id);
-            },
+            }
         }
     }
 
@@ -131,20 +151,15 @@ pub struct GameServer {
 
     /// The state of the server, passed down to the client handlers.
     state: Arc<GameServerState>,
-
-    /// The channel for sending broadcast messages to all clients.
-    broadcast_messages_sender: broadcast::Sender<ServerMessage>,
 }
 impl GameServer {
     /// Creates a new game server
     pub async fn new() -> anyhow::Result<Self> {
-        let (broadcast_messages_sender, _) = broadcast::channel(BROADCAST_CHANNEL_CAPACITY);
         Ok(Self {
             listener: TcpListener::bind(SERVER_BIND_ADDR)
                 .await
                 .context("failed to create tcp listener")?,
             state: Arc::new(GameServerState::new()),
-            broadcast_messages_sender,
         })
     }
 
@@ -159,11 +174,8 @@ impl GameServer {
                 }
             };
             let server_state = Arc::clone(&self.state);
-            let broadcast_messages_sender = self.broadcast_messages_sender.clone();
             let _ = tokio::spawn(async move {
-                if let Err(error) =
-                    handle_client(server_state, broadcast_messages_sender, stream, addr).await
-                {
+                if let Err(error) = handle_client(server_state, stream, addr).await {
                     warn!(
                         "failed to handle client with address {}, error: {:?}",
                         addr, error
@@ -184,6 +196,9 @@ pub enum JoinLobbyError {
 
     #[error("the game in this lobby has already started")]
     GameAlreadyStarted,
+
+    #[error("you are already in a lobby")]
+    AlreadyInALobby,
 }
 
 /// The information about a lobby that is exposed to the clients.
