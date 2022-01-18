@@ -212,6 +212,13 @@ impl GameServerState {
         client_info.username = new_username;
     }
 
+    /// Adds a new client to the list of connected clients, and generates a default username for it.
+    pub fn add_client(&self, client_id: ClientId){
+        self.client_infos.insert(client_id, ClientInfo{
+            username: format!("user{}", client_id),
+        });
+    }
+
     /// Removes the client from the list of connected clients.
     pub fn remove_client(&self, client_id: ClientId) {
         self.client_infos.remove(&client_id);

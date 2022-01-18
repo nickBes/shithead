@@ -226,6 +226,9 @@ pub async fn handle_client(
 
     let id = server_state.next_client_id();
 
+    // add the client to the list of connected clients.
+    server_state.add_client(id);
+
     let mut game_client = ClientHandler {
         websocket,
         client_id: id,
