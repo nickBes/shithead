@@ -15,8 +15,16 @@ pub enum ServerMessage {
     PlayerJoinedLobby(ExposedLobbyPlayerInfo),
     PlayerLeftLobby(ClientId),
 
+    // reserved for future use
     #[serde(rename_all = "camelCase")]
-    LobbyOwnerChanged{ new_owner: ClientId },
+    LobbyOwnerChanged {
+        new_owner_id: ClientId,
+    },
+
+    OwnerLeftLobby {
+        left_owner_id: ClientId,
+        new_owner_id: ClientId,
+    },
 
     ClickCard(ClickedCardLocation),
 }

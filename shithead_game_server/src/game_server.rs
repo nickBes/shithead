@@ -120,17 +120,14 @@ impl GameServerState {
 
         lobby.add_player(player_id);
 
-        if !lobby.is_empty() {
-            // if there are players in the lobby, let them know about the new client.
-            // we can ignore the return value since we know it will be Ok(()), becuase the
-            // lobby isn't empty, so we still have listeners
-            let _ = lobby
-                .broadcast_messages_sender
-                .send(ServerMessage::PlayerJoinedLobby(ExposedLobbyPlayerInfo {
-                    id: player_id,
-                    username,
-                }));
-        }
+        // we can ignore the return value since we know it will be Ok(()), becuase the
+        // lobby can't be empty otherwise it wouldn't exist, so we must still have listeners
+        let _ = lobby
+            .broadcast_messages_sender
+            .send(ServerMessage::PlayerJoinedLobby(ExposedLobbyPlayerInfo {
+                id: player_id,
+                username,
+            }));
 
         Ok(lobby.broadcast_messages_sender.clone())
     }
@@ -154,21 +151,15 @@ impl GameServerState {
                     .broadcast_messages_sender
                     .send(ServerMessage::PlayerLeftLobby(player_id));
             }
-            RemovePlayerFromLobbyResult::NewOwner(new_owner) => {
+            RemovePlayerFromLobbyResult::NewOwner(new_owner_id) => {
                 // let the other clients know that this player left the lobby, and about the new
-                // order.
+                // owner.
                 //
                 // we can ignore the return value since we know it will be Ok(()), becuase the
-                // lobby isn't empty, so we still have listeners
-                //
-                // we must first notify the clients about the new owner before removing the client
-                // so that there won't be a point where there is no owner.
+                // lobby isn't empty, so we still have listeners.
                 let _ = lobby
                     .broadcast_messages_sender
-                    .send(ServerMessage::LobbyOwnerChanged { new_owner });
-                let _ = lobby
-                    .broadcast_messages_sender
-                    .send(ServerMessage::PlayerLeftLobby(player_id));
+                    .send(ServerMessage::OwnerLeftLobby { left_owner_id: player_id, new_owner_id });
             }
             RemovePlayerFromLobbyResult::LobbyNowEmpty => {
                 // the lobby is now empty, remove it
