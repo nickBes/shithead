@@ -1,11 +1,17 @@
 use std::sync::{atomic::AtomicUsize, Arc};
 
 use anyhow::Context;
+use dashmap::DashMap;
 use log::warn;
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 use tokio::{net::TcpListener, sync::broadcast};
 
-use crate::{client_handler::handle_client, messages::ServerMessage};
+use crate::{
+    client_handler::handle_client,
+    lobby::{Lobby, LobbyId, LobbyState, MAX_PLAYERS_IN_LOBBY},
+    messages::ServerMessage,
+};
 
 const SERVER_BIND_ADDR: &str = "0.0.0.0:7522";
 const BROADCAST_CHANNEL_CAPACITY: usize = 200;
@@ -13,25 +19,86 @@ const BROADCAST_CHANNEL_CAPACITY: usize = 200;
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Clone, Copy)]
 #[serde(transparent)]
 pub struct ClientId(usize);
+impl std::fmt::Display for ClientId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
 
 /// The state of the game server.
 /// Stores all information about lobbies, games, and everthing else server related.
 pub struct GameServerState {
     /// The id of the next player to connect to the game server.
     next_client_id: AtomicUsize,
+
+    /// The id of the next created lobby
+    next_lobby_id: AtomicUsize,
+
+    lobbies: DashMap<LobbyId, Lobby>,
 }
 impl GameServerState {
     pub fn new() -> Self {
         Self {
             next_client_id: AtomicUsize::new(0),
+            next_lobby_id: AtomicUsize::new(0),
+            lobbies: DashMap::new(),
         }
     }
 
+    /// Returns the id of the next player to connect to the game server.
     pub fn next_client_id(&self) -> ClientId {
         ClientId(
             self.next_client_id
                 .fetch_add(1, std::sync::atomic::Ordering::Relaxed),
         )
+    }
+
+    /// Creates a new lobby with the given name and owner. Returns the id of the new lobby.
+    pub fn create_lobby(&self, name: String, owner: ClientId) -> LobbyId {
+        let lobby_id = LobbyId::from_raw(
+            self.next_lobby_id
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed),
+        );
+        let lobby = Lobby::new(name, owner);
+        self.lobbies.insert(lobby_id, lobby);
+        lobby_id
+    }
+
+    /// Tries to add a player to a lobby.
+    /// If there is no lobby with the given index, returns an error.
+    /// If the lobby is full, returns an error.
+    /// If the game in the lobby has already started, returns an error.
+    /// Otherwise adds the client to the list of players in the lobby, and returns `Ok(())`.
+    pub fn join_lobby(&self, client_id: ClientId, lobby: LobbyId) -> Result<(), JoinLobbyError> {
+        let lobby = self
+            .lobbies
+            .get(&lobby)
+            .ok_or(JoinLobbyError::NoSuchLobby)?;
+        if lobby.players_amount() >= MAX_PLAYERS_IN_LOBBY {
+            return Err(JoinLobbyError::LobbyFull);
+        }
+        if lobby.state() != LobbyState::Waiting {
+            return Err(JoinLobbyError::GameAlreadyStarted);
+        }
+
+        lobby.add_player(client_id);
+
+        Ok(())
+    }
+
+    /// Returns a list of exposed information about each lobby.
+    pub fn exposed_lobby_list(&self) -> Vec<ExposedLobbyInfo> {
+        self.lobbies
+            .iter()
+            .map(|entry| {
+                let lobby = entry.value();
+                let lobby_id = *entry.key();
+                ExposedLobbyInfo {
+                    name: lobby.name().to_string(),
+                    id: lobby_id,
+                }
+            })
+            .collect()
     }
 }
 
@@ -84,4 +151,23 @@ impl GameServer {
             });
         }
     }
+}
+
+#[derive(Debug, Error, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum JoinLobbyError {
+    #[error("no such lobby")]
+    NoSuchLobby,
+
+    #[error("this lobby is full")]
+    LobbyFull,
+
+    #[error("the game in this lobby has already started")]
+    GameAlreadyStarted,
+}
+
+/// The information about a lobby that is exposed to the clients.
+#[derive(Debug, Serialize, Clone)]
+pub struct ExposedLobbyInfo {
+    pub name: String,
+    pub id: LobbyId,
 }

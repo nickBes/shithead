@@ -1,17 +1,36 @@
 use serde::{Deserialize, Serialize};
 
-use crate::game_server::ClientId;
+use crate::{
+    game_server::{ClientId, ExposedLobbyInfo},
+    lobby::LobbyId,
+};
 
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub enum ServerMessage {
     ClientId(ClientId),
-    ClickCard(ClickedCardLocation),
+    Lobbies(Vec<ExposedLobbyInfo>),
+    JoinLobby(LobbyId),
+    Error(String),
 }
 
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub enum ClientMessage {
+    Username(String),
+    JoinLobby(LobbyId),
+    CreateLobby { name: String },
+}
+
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub enum InGameServerMessage {
+    ClickCard(ClickedCardLocation),
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub enum InGameClientMessage {
     ClickCard(ClickedCardLocation),
 }
 
@@ -20,5 +39,7 @@ pub enum ClientMessage {
 pub enum ClickedCardLocation {
     Trash,
     #[serde(rename_all = "camelCase")]
-    MyCards{ card_index: u32 },
+    MyCards {
+        card_index: u32,
+    },
 }

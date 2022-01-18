@@ -2,14 +2,14 @@ use std::{net::SocketAddr, sync::Arc};
 
 use anyhow::Context;
 use futures::{SinkExt, StreamExt};
-use serde::Serialize;
 use thiserror::Error;
 use tokio::{net::TcpStream, sync::broadcast};
 use tokio_tungstenite::{tungstenite::Message, WebSocketStream};
 
 use crate::{
     game_server::{ClientId, GameServerState},
-    messages::{ClickedCardLocation, ClientMessage, ServerMessage},
+    lobby::LobbyId,
+    messages::{ClientMessage, ServerMessage},
 };
 
 #[derive(Debug, Error)]
@@ -21,7 +21,9 @@ pub struct ClientHandler {
     websocket: WebSocketStream<TcpStream>,
     server_state: Arc<GameServerState>,
     broadcast_messages_sender: broadcast::Sender<ServerMessage>,
-    id: ClientId,
+    username: String,
+    client_id: ClientId,
+    lobby_id: Option<LobbyId>,
 }
 impl ClientHandler {
     /// Handles a client by receiving messages from him and processing them, and by sending him
@@ -75,29 +77,54 @@ impl ClientHandler {
         Ok(())
     }
 
+    /// Performs a handshake with this client, and synchronizes data with him.
+    /// It sends the client its id, and a list of lobbies.
     async fn perform_handshake(&mut self) -> anyhow::Result<()> {
-        self.send_message(&ServerMessage::ClientId(self.id))
+        // send the client its id
+        self.send_message(&ServerMessage::ClientId(self.client_id))
             .await
             .context("failed to send the client its id")?;
+
+        // send the client a list of exposed lobby information
+        self.send_message(&ServerMessage::Lobbies(
+            self.server_state.exposed_lobby_list(),
+        ))
+        .await
+        .context("failed to send the list of lobbies to the client")?;
+
         Ok(())
     }
 
     /// Handles a message received from the client
     async fn handle_message(&mut self, msg: ClientMessage) -> anyhow::Result<()> {
         match msg {
-            ClientMessage::ClickCard(clicked_card) => match clicked_card {
-                ClickedCardLocation::Trash => {
-                    self.send_broadcast_message(ServerMessage::ClickCard(clicked_card))
-                        .await
-                }
-                ClickedCardLocation::MyCards { card_index } => {
-                    // this is currently just for testing purposes
-                    if card_index > 3 {
-                        self.send_broadcast_message(ServerMessage::ClickCard(clicked_card))
-                            .await
+            ClientMessage::Username(new_username) => {
+                self.username = new_username;
+            }
+            ClientMessage::JoinLobby(lobby_id) => {
+                match self.server_state.join_lobby(self.client_id, lobby_id) {
+                    Ok(()) => {
+                        self.lobby_id = Some(lobby_id);
+
+                        // let the client know that he's now in the lobby
+                        self.send_message(&ServerMessage::JoinLobby(lobby_id))
+                            .await?;
+                    }
+                    Err(err) => {
+                        // let the client know about the error that occured
+                        self.send_message(&ServerMessage::Error(err.to_string()))
+                            .await?;
                     }
                 }
-            },
+            }
+            ClientMessage::CreateLobby { name } => {
+                let new_lobby_id = self.server_state.create_lobby(name, self.client_id);
+                self.lobby_id = Some(new_lobby_id);
+
+                // let the client know that he's now in the lobby
+                self.send_message(&ServerMessage::JoinLobby(new_lobby_id))
+                    .await?;
+            }
         }
         Ok(())
     }
@@ -136,11 +163,15 @@ pub async fn handle_client(
         .await
         .context("failed to accept websocket client {}")?;
 
+    let id = server_state.next_client_id();
+
     let mut game_client = ClientHandler {
         websocket,
         broadcast_messages_sender,
-        id: server_state.next_client_id(),
         server_state,
+        client_id: id,
+        username: format!("user{}", id),
+        lobby_id: None,
     };
 
     game_client.handle().await
