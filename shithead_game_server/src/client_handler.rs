@@ -7,7 +7,7 @@ use tokio::{net::TcpStream, sync::broadcast};
 use tokio_tungstenite::{tungstenite::Message, WebSocketStream};
 
 use crate::{
-    game_server::GameServerState,
+    game_server::{GameServerState, ClientId},
     messages::{ClientMessage, ServerMessage},
 };
 
@@ -20,7 +20,7 @@ pub struct ClientHandler {
     websocket: WebSocketStream<TcpStream>,
     server_state: Arc<GameServerState>,
     broadcast_messages_sender: broadcast::Sender<ServerMessage>,
-    id: usize,
+    id: ClientId,
 }
 impl ClientHandler {
     /// Handles a client by receiving messages from him and processing them, and by sending him
@@ -116,8 +116,7 @@ pub async fn handle_client(
         websocket,
         broadcast_messages_sender,
         id: server_state
-            .next_id
-            .fetch_add(1, std::sync::atomic::Ordering::Relaxed),
+            .next_client_id(),
         server_state,
     };
 
