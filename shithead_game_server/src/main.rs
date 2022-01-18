@@ -9,6 +9,8 @@ use tokio_tungstenite::tungstenite::Message;
 
 const SERVER_BIND_ADDR: &str = "0.0.0.0:7522";
 
+/// The state of the game server.
+/// Stores all information about lobbies, games, and everthing else server related.
 pub struct GameServerState {}
 impl GameServerState {
     pub fn new() -> Self {
@@ -16,11 +18,17 @@ impl GameServerState {
     }
 }
 
-struct GameServer {
+/// The main game server.
+/// Responsible for accepting clients and spawning client handler tasks.
+pub struct GameServer {
+    /// The tcp listener, for accepting clients
     listener: TcpListener,
+
+    /// The state of the server, passed down to the client handlers.
     state: Arc<GameServerState>,
 }
 impl GameServer {
+    /// Creates a new game server
     pub async fn new() -> anyhow::Result<Self> {
         Ok(Self {
             listener: TcpListener::bind(SERVER_BIND_ADDR)
@@ -29,6 +37,8 @@ impl GameServer {
             state: Arc::new(GameServerState::new()),
         })
     }
+
+    /// Starts accepting clients and spawning client handlers for them
     pub async fn start(&mut self) -> anyhow::Result<()> {
         loop {
             let (stream, addr) = match self.listener.accept().await {
@@ -81,7 +91,10 @@ async fn run() -> anyhow::Result<()> {
 #[tokio::main]
 async fn main() {
     SimpleLogger::new()
+        // display timestamps using utc time. using this because there's a problem on my pc which
+        // doesn't allow using local time.
         .with_utc_timestamps()
+        // only show log messages with level Info or higher (Warning, Error).
         .with_level(log::LevelFilter::Info)
         .init()
         .expect("failed to initialize logger");
