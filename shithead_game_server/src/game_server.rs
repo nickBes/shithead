@@ -2,6 +2,7 @@ use std::sync::{atomic::AtomicUsize, Arc};
 
 use anyhow::Context;
 use log::warn;
+use serde::{Deserialize, Serialize};
 use tokio::{net::TcpListener, sync::broadcast};
 
 use crate::{client_handler::handle_client, messages::ServerMessage};
@@ -9,17 +10,28 @@ use crate::{client_handler::handle_client, messages::ServerMessage};
 const SERVER_BIND_ADDR: &str = "0.0.0.0:7522";
 const BROADCAST_CHANNEL_CAPACITY: usize = 200;
 
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Clone, Copy)]
+#[serde(transparent)]
+pub struct ClientId(usize);
+
 /// The state of the game server.
 /// Stores all information about lobbies, games, and everthing else server related.
 pub struct GameServerState {
     /// The id of the next player to connect to the game server.
-    pub next_id: AtomicUsize,
+    next_client_id: AtomicUsize,
 }
 impl GameServerState {
     pub fn new() -> Self {
         Self {
-            next_id: AtomicUsize::new(0),
+            next_client_id: AtomicUsize::new(0),
         }
+    }
+
+    pub fn next_client_id(&self) -> ClientId {
+        ClientId(
+            self.next_client_id
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed),
+        )
     }
 }
 

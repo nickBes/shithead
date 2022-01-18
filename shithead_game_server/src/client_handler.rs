@@ -2,13 +2,14 @@ use std::{net::SocketAddr, sync::Arc};
 
 use anyhow::Context;
 use futures::{SinkExt, StreamExt};
+use serde::Serialize;
 use thiserror::Error;
 use tokio::{net::TcpStream, sync::broadcast};
 use tokio_tungstenite::{tungstenite::Message, WebSocketStream};
 
 use crate::{
-    game_server::GameServerState,
-    messages::{ClientMessage, ServerMessage},
+    game_server::{ClientId, GameServerState},
+    messages::{ClickedCardLocation, ClientMessage, ServerMessage},
 };
 
 #[derive(Debug, Error)]
@@ -20,12 +21,16 @@ pub struct ClientHandler {
     websocket: WebSocketStream<TcpStream>,
     server_state: Arc<GameServerState>,
     broadcast_messages_sender: broadcast::Sender<ServerMessage>,
-    id: usize,
+    id: ClientId,
 }
 impl ClientHandler {
     /// Handles a client by receiving messages from him and processing them, and by sending him
     /// broadcast messages.
     pub async fn handle(&mut self) -> anyhow::Result<()> {
+        self.perform_handshake()
+            .await
+            .context("failed to perform handshake with client")?;
+
         let mut broadcast_messages_receiver = self.broadcast_messages_sender.subscribe();
 
         loop {
@@ -70,10 +75,29 @@ impl ClientHandler {
         Ok(())
     }
 
+    async fn perform_handshake(&mut self) -> anyhow::Result<()> {
+        self.send_message(&ServerMessage::ClientId(self.id))
+            .await
+            .context("failed to send the client its id")?;
+        Ok(())
+    }
+
     /// Handles a message received from the client
     async fn handle_message(&mut self, msg: ClientMessage) -> anyhow::Result<()> {
         match msg {
-            ClientMessage::Msg(msg) => self.send_broadcast_message(ServerMessage::Msg(msg)).await,
+            ClientMessage::ClickCard(clicked_card) => match clicked_card {
+                ClickedCardLocation::Trash => {
+                    self.send_broadcast_message(ServerMessage::ClickCard(clicked_card))
+                        .await
+                }
+                ClickedCardLocation::MyCards { card_index } => {
+                    // this is currently just for testing purposes
+                    if card_index > 3 {
+                        self.send_broadcast_message(ServerMessage::ClickCard(clicked_card))
+                            .await
+                    }
+                }
+            },
         }
         Ok(())
     }
@@ -115,9 +139,7 @@ pub async fn handle_client(
     let mut game_client = ClientHandler {
         websocket,
         broadcast_messages_sender,
-        id: server_state
-            .next_id
-            .fetch_add(1, std::sync::atomic::Ordering::Relaxed),
+        id: server_state.next_client_id(),
         server_state,
     };
 
