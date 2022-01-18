@@ -159,7 +159,7 @@ impl GameServerState {
                 // lobby isn't empty, so we still have listeners.
                 let _ = lobby
                     .broadcast_messages_sender
-                    .send(ServerMessage::OwnerLeftLobby { left_owner_id: player_id, new_owner_id });
+                    .send(ServerMessage::OwnerLeftLobby { new_owner_id });
             }
             RemovePlayerFromLobbyResult::LobbyNowEmpty => {
                 // the lobby is now empty, remove it

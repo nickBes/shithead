@@ -21,8 +21,9 @@ pub enum ServerMessage {
         new_owner_id: ClientId,
     },
 
+    // don't need the id of the previous owner because all the clients already know who the owner
+    // is.
     OwnerLeftLobby {
-        left_owner_id: ClientId,
         new_owner_id: ClientId,
     },
 
