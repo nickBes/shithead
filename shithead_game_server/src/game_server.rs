@@ -80,7 +80,7 @@ impl GameServerState {
     }
 
     /// Tries to add a player to a lobby.
-    /// If there is no lobby with the given index, returns an error.
+    /// If there is no lobby with the given id, returns an error.
     /// If the lobby is full, returns an error.
     /// If the game in the lobby has already started, returns an error.
     /// Otherwise adds the client to the list of players in the lobby, and returns the lobby's
