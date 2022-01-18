@@ -207,6 +207,8 @@ impl ClientHandler {
             self.server_state
                 .remove_player_from_lobby(self.client_id, lobby_id);
         }
+
+        // then remove the client from the list of connected clients.
         self.server_state.remove_client(self.client_id);
         Ok(())
     }
