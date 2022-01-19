@@ -1,5 +1,5 @@
-import type { ExposedLobbyPlayerInfo } from "./ExposedLobbyPlayerInfo";
-import type { ExposedLobbyInfo } from "./ExposedLobbyInfo";
 import type { ClickedCardLocation } from "./ClickedCardLocation";
+import type { ExposedLobbyInfo } from "./ExposedLobbyInfo";
+import type { ExposedLobbyPlayerInfo } from "./ExposedLobbyPlayerInfo";
 
-export type ServerMessage = { clientId: number } | { lobbies: Array<ExposedLobbyInfo> } | { joinLobby: number } | { error: string } | { playerJoinedLobby: ExposedLobbyPlayerInfo } | { playerLeftLobby: number } | { lobbyOwnerChanged: { new_owner_id: number, } } | { ownerLeftLobby: { new_owner_id: number, } } | { clickCard: ClickedCardLocation };
+export type ServerMessage = { t: "clientId", id: number, } | { t: "lobbies", lobbies: Array<ExposedLobbyInfo>, } | { t: "joinLobby", id: number, } | { t: "error", err: string, } | { t: "playerJoinedLobby", player_info: ExposedLobbyPlayerInfo, } | { t: "playerLeftLobby", id: number, } | { t: "lobbyOwnerChanged", new_owner_id: number, } | { t: "ownerLeftLobby", new_owner_id: number, } | { t: "startGame" } | { t: "clickCard", location: ClickedCardLocation, };

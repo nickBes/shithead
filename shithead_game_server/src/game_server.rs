@@ -125,10 +125,12 @@ impl GameServerState {
         // lobby can't be empty otherwise it wouldn't exist, so we must still have listeners
         let _ = lobby
             .broadcast_messages_sender
-            .send(ServerMessage::PlayerJoinedLobby(ExposedLobbyPlayerInfo {
-                id: player_id,
-                username,
-            }));
+            .send(ServerMessage::PlayerJoinedLobby {
+                player_info: ExposedLobbyPlayerInfo {
+                    id: player_id,
+                    username,
+                },
+            });
 
         Ok(lobby.broadcast_messages_sender.clone())
     }
@@ -150,7 +152,7 @@ impl GameServerState {
                 // lobby isn't empty, so we still have listeners
                 let _ = lobby
                     .broadcast_messages_sender
-                    .send(ServerMessage::PlayerLeftLobby(player_id));
+                    .send(ServerMessage::PlayerLeftLobby { id: player_id });
             }
             RemovePlayerFromLobbyResult::NewOwner(new_owner_id) => {
                 // let the other clients know that this player left the lobby, and about the new
@@ -226,20 +228,24 @@ impl GameServerState {
 
     /// Attempts to start the game in the given lobby, given the id of the client who requested to
     /// start the game and the id of the lobby.
-    pub fn start_game(&self, requesting_client_id: ClientId, lobby_id: LobbyId) -> Result<(),StartGameError> {
+    pub fn start_game(
+        &self,
+        requesting_client_id: ClientId,
+        lobby_id: LobbyId,
+    ) -> Result<(), StartGameError> {
         let mut lobby = self
             .lobbies
             .get_mut(&lobby_id)
             .ok_or(StartGameError::NoSuchLobby)?;
 
         // can only start the game if you are the owner
-        if lobby.owner_id() != requesting_client_id{
+        if lobby.owner_id() != requesting_client_id {
             return Err(StartGameError::NotOwner);
         }
 
         // can only start the game if it's in the waiting state
-        if lobby.state() != LobbyState::Waiting{
-            return Err(StartGameError::GameAlreadyStarted)
+        if lobby.state() != LobbyState::Waiting {
+            return Err(StartGameError::GameAlreadyStarted);
         }
 
         lobby.start_game();
