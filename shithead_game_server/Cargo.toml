@@ -17,3 +17,4 @@ serde_json = "1.0.75"
 thiserror = "1.0.30"
 dashmap = { version = "5.0.0", features = ["serde"] }
 lazy_static = "1.4.0"
+ts-rs = "6.1.0"
