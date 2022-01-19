@@ -17,7 +17,7 @@ use crate::{
     messages::ServerMessage,
 };
 
-const SERVER_BIND_ADDR: &str = "0.0.0.0:7522";
+pub const SERVER_BIND_ADDR: &str = "0.0.0.0:7522";
 pub const BROADCAST_CHANNEL_CAPACITY: usize = 200;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Clone, Copy, TypeDef)]
@@ -94,6 +94,15 @@ impl GameServerState {
         self.lobbies.insert(lobby_id, lobby);
 
         (lobby_id, broadcast_messages_sender)
+    }
+
+    /// Returns information about a client, assuming it's currently in a lobby.
+    ///
+    /// If the client is in a lobby, there must still be an entry for it in 
+    /// `GameServerState::client_infos`, since it is only removed from there after being removed
+    /// from a lobby
+    pub fn get_client_in_lobby(&self, client_id: ClientId)->dashmap::mapref::one::Ref<ClientId, ClientInfo>{
+        self.client_infos.get(&client_id).expect("client is still in lobby but removed from client list")
     }
 
     /// Tries to add a player to a lobby.
@@ -190,11 +199,13 @@ impl GameServerState {
                     id: lobby_id,
                     players: lobby
                         .player_ids()
-                        .filter_map(|player_id| {
-                            Some(ExposedLobbyPlayerInfo {
+                        .map(|player_id| {
+                            ExposedLobbyPlayerInfo {
                                 id: player_id,
-                                username: self.client_infos.get(&player_id)?.username.clone(),
-                            })
+                                username: self.get_client_in_lobby(player_id)
+                                    .username
+                                    .clone(),
+                            }
                         })
                         .collect(),
                     owner_id: lobby.owner_id(),
@@ -257,7 +268,21 @@ impl GameServerState {
             return Err(StartGameError::GameAlreadyStarted);
         }
 
+        // starts the game and gives players their initial cards, so after it we must tell each
+        // player his cards
         lobby.start_game();
+
+        for player_id in lobby.player_ids() {
+            let client_info = self.get_client_in_lobby(player_id);
+
+            // the information about this client as a lobby player
+            let lobby_player_info = lobby.get_player(player_id);
+
+            client_info.specific_messages_sender.send(ServerMessage::InitialCards{
+                cards_in_hand: lobby_player_info.cards_in_hand.clone(),
+                three_up_cards: lobby_player_info.three_up_cards.clone(),
+            }).unwrap();
+        }
 
         Ok(())
     }

@@ -3,7 +3,7 @@ use typescript_type_def::TypeDef;
 
 use crate::{
     game_server::{ClientId, ExposedLobbyInfo, ExposedLobbyPlayerInfo},
-    lobby::LobbyId,
+    lobby::LobbyId, card::CardId,
 };
 
 #[derive(Debug, Serialize, Clone, TypeDef)]
@@ -24,6 +24,11 @@ pub enum ServerMessage {
     OwnerLeftLobby { new_owner_id: ClientId },
 
     StartGame,
+
+    InitialCards{
+        cards_in_hand: Vec<CardId>,
+        three_up_cards: Vec<CardId>,
+    },
 
     ClickCard(ClickedCardLocation),
 }
