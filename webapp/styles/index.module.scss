@@ -1,0 +1,82 @@
+@use '@/styles/theme';
+
+.main {
+    --nav_h: 10vh;
+    min-height: 100vh;
+    display: grid;
+
+    // change the nav height per the changes in the 
+    // aspect ratio
+    @media (max-aspect-ratio: 1/1) {
+        --nav_h: 15vh;
+    }
+    grid-template-rows: var(--nav_h) calc(100vh - var(--nav_h));
+}
+
+.nav {
+    // text align
+    text-align: center;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: theme.$bg_color2;
+    // get font size between the large one and  $nav_h - 2vh,
+    // though the prefered size is extra large
+    font-size: clamp(theme.$l_font, theme.$xl_font, calc(var(--nav_h) - 2vh));
+}
+
+.formWrap {
+    display: flex;
+    justify-content: center;
+}
+
+.form {
+    // layout
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+
+    // text
+    text-align: center;
+    
+    // sizing
+    --min_w: 50%;
+    @media (max-aspect-ratio: 1/1) {
+        --min_w: 80%
+    }
+
+    width: var(--min_w);
+    max-width: 625px;
+}
+
+.search {
+    width: 100%;
+    //text
+    text-align: center;
+    border: 0px solid transparent;
+    background-color: theme.$bg_color2;
+    color: theme.$text_color2;
+    font-family: theme.$font;
+    aspect-ratio: 10/1;
+
+    @media (max-aspect-ratio: 1/1) {
+        aspect-ratio: 8/1;
+    }
+    font-size: clamp(theme.$s_font, theme.$m_font, 2vmin);
+
+}
+.search:focus {
+    border: 0px solid transparent;
+    outline: theme.$outline;
+    outline-offset: -1px;
+}
+.search::placeholder {
+    font-size: clamp(theme.$s_font, theme.$m_font, 2vmin);
+}
+
+
+.inputLabel {
+    color: theme.$text_color2;
+    font-size: clamp(theme.$s_font, theme.$m_font, calc(var(--nav_h) - 4vh));
+    margin: 2vmin;
+}
