@@ -5,7 +5,7 @@ use dashmap::DashMap;
 use log::warn;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use tokio::{net::TcpListener, sync::broadcast};
+use tokio::{net::TcpListener, sync::{broadcast, mpsc}};
 use ts_rs::TS;
 
 use crate::{
@@ -29,6 +29,9 @@ impl std::fmt::Display for ClientId {
 #[derive(Debug)]
 pub struct ClientInfo {
     username: String,
+
+    /// A channel used for sending messages specifically to this client
+    specific_messages_sender: mpsc::UnboundedSender<ServerMessage>,
 }
 
 /// The state of the game server.
@@ -211,14 +214,19 @@ impl GameServerState {
         client_info.username = new_username;
     }
 
-    /// Adds a new client to the list of connected clients, and generates a default username for it.
-    pub fn add_client(&self, client_id: ClientId) {
+    /// Adds a new client to the list of connected clients, generates a default username for it,
+    /// and creates a channel for sending messages specifically to that specific client. Returns 
+    /// the receiver of that channel.
+    pub fn add_client(&self, client_id: ClientId) -> mpsc::UnboundedReceiver<ServerMessage> {
+        let (specific_messages_sender, specific_messages_receiver) = mpsc::unbounded_channel();
         self.client_infos.insert(
             client_id,
             ClientInfo {
                 username: format!("user{}", client_id),
+                specific_messages_sender,
             },
         );
+        specific_messages_receiver
     }
 
     /// Removes the client from the list of connected clients.
