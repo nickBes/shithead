@@ -31,6 +31,8 @@ pub enum ServerMessage {
         new_owner_id: ClientId,
     },
 
+    StartGame,
+
     ClickCard(ClickedCardLocation),
 }
 
@@ -42,6 +44,7 @@ pub enum ClientMessage {
     GetLobbies,
     JoinLobby(#[ts(type = "number")] LobbyId),
     CreateLobby { name: String },
+    StartGame,
     // ClickCard(ClickedCardLocation),
 }
 

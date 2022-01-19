@@ -7,7 +7,7 @@ use tokio::{net::TcpStream, sync::broadcast};
 use tokio_tungstenite::{tungstenite::Message, WebSocketStream};
 
 use crate::{
-    game_server::{ClientId, GameServerState, JoinLobbyError},
+    game_server::{ClientId, GameServerState, JoinLobbyError, StartGameError},
     lobby::LobbyId,
     messages::{ClientMessage, ServerMessage},
 };
@@ -146,6 +146,32 @@ impl ClientHandler {
                     self.server_state.exposed_lobby_list(),
                 ))
                 .await?;
+            }
+            ClientMessage::StartGame => {
+                match self.lobby_id {
+                    Some(lobby_id) => {
+                        // if the client is in a lobby, try to start the game
+                        match self.server_state.start_game(self.client_id, lobby_id) {
+                            Ok(()) => {
+                                // the game has started, let all the clients know
+                                self.send_broadcast_message(ServerMessage::StartGame).await;
+                            }
+                            Err(err) => {
+                                // failed to start the game, let the client know what happened
+                                self.send_message(&ServerMessage::Error(err.to_string()))
+                                    .await?;
+                            }
+                        }
+                    }
+                    None => {
+                        // if the client is not in a lobby, he is definitely not the owner, so let
+                        // him know
+                        self.send_message(&ServerMessage::Error(
+                            StartGameError::NotOwner.to_string(),
+                        ))
+                        .await?;
+                    }
+                }
             }
         }
         Ok(())

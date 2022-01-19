@@ -1,8 +1,9 @@
-use dashmap::{DashMap, DashSet};
+use std::collections::HashMap;
+
 use lazy_static::lazy_static;
+use rand::prelude::SliceRandom;
 use serde::{Deserialize, Serialize};
-use strum::EnumCount;
-use strum::IntoEnumIterator;
+use strum::{EnumCount, IntoEnumIterator};
 use tokio::sync::broadcast;
 
 use crate::{
@@ -12,7 +13,11 @@ use crate::{
 };
 
 pub const MAX_PLAYERS_IN_LOBBY: usize = 6;
-pub const JOKERS_AMOUNT: usize = 2;
+const JOKERS_AMOUNT: usize = 2;
+
+pub const INITIAL_CARDS_IN_HAND_AMOUNT: usize = 3;
+pub const INITIAL_THREE_CARDS_UP_AMOUNT: usize = 3;
+pub const INITIAL_THREE_CARDS_DOWN_AMOUNT: usize = 3;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -56,6 +61,7 @@ impl CardsById {
 
 lazy_static! {
     static ref CARDS_BY_ID: CardsById = CardsById::new();
+    static ref ALL_CARD_IDS: Vec<CardId> = (0..CARDS_BY_ID.cards_amount()).map(CardId).collect();
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Hash)]
@@ -73,7 +79,38 @@ impl LobbyId {
 #[derive(Debug, Serialize, PartialEq, Eq, Clone, Copy, Hash)]
 pub enum LobbyState {
     Waiting,
-    Started,
+    GameStarted,
+}
+
+/// A deck of cards
+#[derive(Debug)]
+pub struct Deck {
+    cards: Vec<CardId>,
+}
+impl Deck {
+    /// Creates a shuffled deck of cards.
+    pub fn shuffled() -> Self {
+        // first collect into a vector so that we can shuffle it.
+        let mut card_ids = ALL_CARD_IDS.clone();
+        card_ids.shuffle(&mut rand::thread_rng());
+
+        // after we have a shuffled vector of card ids, we can collect it into a DashSet to
+        // represent our deck.
+        let cards: Vec<CardId> = card_ids.iter().copied().collect();
+
+        Self { cards }
+    }
+
+    /// Takes cards from the top of the deck.
+    pub fn take_cards_from_top<'a>(
+        &'a mut self,
+        amount: usize,
+    ) -> Option<impl Iterator<Item = CardId> + 'a> {
+        if amount > self.cards.len() {
+            return None;
+        }
+        Some(self.cards.drain(self.cards.len() - amount..))
+    }
 }
 
 /// A game lobby
@@ -81,29 +118,24 @@ pub enum LobbyState {
 pub struct Lobby {
     name: String,
     state: LobbyState,
-    deck: DashSet<CardId>,
+    deck: Deck,
     owner_id: ClientId,
-    players: DashMap<ClientId, LobbyPlayer>,
+    players: HashMap<ClientId, LobbyPlayer>,
     pub broadcast_messages_sender: broadcast::Sender<ServerMessage>,
 }
 
 impl Lobby {
     /// Creates a new lobby with the given name and owner.
     pub fn new(name: String, owner_id: ClientId) -> Self {
-        let deck = DashSet::new();
-        for index in 0..CARDS_BY_ID.cards_amount() {
-            deck.insert(CardId(index));
-        }
-
-        let players = DashMap::new();
+        let mut players = HashMap::new();
         players.insert(owner_id, LobbyPlayer::without_any_cards());
 
         let (broadcast_messages_sender, _) = broadcast::channel(BROADCAST_CHANNEL_CAPACITY);
         Self {
             state: LobbyState::Waiting,
+            deck: Deck::shuffled(),
             owner_id,
             name,
-            deck,
             players,
             broadcast_messages_sender,
         }
@@ -136,15 +168,15 @@ impl Lobby {
 
     /// The ids of the players in the lobby.
     pub fn player_ids<'a>(&'a self) -> impl Iterator<Item = ClientId> + 'a {
-        self.players.iter().map(|entry| *entry.key())
+        self.players.keys().copied()
     }
 
-    /// Adds a player to the lobby without checking performing any checks.
+    /// Adds a player to the lobby without performing any checks.
     /// The checks are done in `GameServerState::join_lobby`.
     ///
     /// The player starts with no cards at all, since assuming checks have been done, the lobby
     /// should be in the `LobbyState::Waiting` state, in which no players have cards.
-    pub fn add_player(&self, player_id: ClientId) {
+    pub fn add_player(&mut self, player_id: ClientId) {
         self.players
             .insert(player_id, LobbyPlayer::without_any_cards());
     }
@@ -158,13 +190,12 @@ impl Lobby {
 
         // if the removed player was the owner
         if player_id == self.owner_id {
-            match self.players.iter().next() {
+            match self.players.keys().next() {
                 None => {
                     // if there are no players left
                     RemovePlayerFromLobbyResult::LobbyNowEmpty
                 }
-                Some(new_owner_entry) => {
-                    let new_owner_id = *new_owner_entry.key();
+                Some(&new_owner_id) => {
                     self.owner_id = new_owner_id;
                     RemovePlayerFromLobbyResult::NewOwner(new_owner_id)
                 }
@@ -177,6 +208,32 @@ impl Lobby {
                 // the lobby is not empty and the owner hasn't changed
                 RemovePlayerFromLobbyResult::Ok
             }
+        }
+    }
+
+    /// Starts the game in this lobby without performing any checks.
+    /// The checks are done in `GameServerState::start_game`.
+    ///
+    /// This function gives all players the initial amount of cards.
+    pub fn start_game(&mut self) {
+        self.state = LobbyState::GameStarted;
+
+        for player in self.players.values_mut() {
+            player.cards_in_hand = self
+                .deck
+                .take_cards_from_top(INITIAL_CARDS_IN_HAND_AMOUNT)
+                .expect("not enough cards to initialize game")
+                .collect();
+            player.three_up_cards = self
+                .deck
+                .take_cards_from_top(INITIAL_THREE_CARDS_UP_AMOUNT)
+                .expect("not enough cards to initialize game")
+                .collect();
+            player.three_up_cards = self
+                .deck
+                .take_cards_from_top(INITIAL_THREE_CARDS_DOWN_AMOUNT)
+                .expect("not enough cards to initialize game")
+                .collect();
         }
     }
 }
