@@ -143,10 +143,22 @@ impl ClientHandler {
                 }
             }
             ClientMessage::CreateLobby { lobby_name } => {
-                let (new_lobby_id, broadcast_messages_sender) =
-                    self.server_state.create_lobby(lobby_name, self.client_id);
-                self.on_joined_lobby(new_lobby_id, broadcast_messages_sender)
-                    .await?;
+                match self.lobby_id {
+                    Some(_) => {
+                        // if the client is already in a lobby, he can't create a new one
+                        self.send_message(&ServerMessage::Error(
+                            CreateLobbyError::AlreadyInALobby.to_string(),
+                        ))
+                        .await?
+                    }
+                    None => {
+                        // if the client is not in a lobby, he can create one
+                        let (new_lobby_id, broadcast_messages_sender) =
+                            self.server_state.create_lobby(lobby_name, self.client_id);
+                        self.on_joined_lobby(new_lobby_id, broadcast_messages_sender)
+                            .await?;
+                    }
+                }
             }
             ClientMessage::GetLobbies => {
                 self.send_message(&ServerMessage::Lobbies(
@@ -274,4 +286,10 @@ pub async fn handle_client(
     };
 
     game_client.handle_and_cleanup().await
+}
+
+#[derive(Debug, Error)]
+pub enum CreateLobbyError {
+    #[error("you are already in a lobby")]
+    AlreadyInALobby,
 }
