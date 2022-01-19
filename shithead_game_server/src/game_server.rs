@@ -5,8 +5,11 @@ use dashmap::DashMap;
 use log::warn;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use tokio::{net::TcpListener, sync::{broadcast, mpsc}};
-use ts_rs::TS;
+use tokio::{
+    net::TcpListener,
+    sync::{broadcast, mpsc},
+};
+use typescript_type_def::TypeDef;
 
 use crate::{
     client_handler::handle_client,
@@ -17,7 +20,7 @@ use crate::{
 const SERVER_BIND_ADDR: &str = "0.0.0.0:7522";
 pub const BROADCAST_CHANNEL_CAPACITY: usize = 200;
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Clone, Copy)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Clone, Copy, TypeDef)]
 #[serde(transparent)]
 pub struct ClientId(usize);
 impl std::fmt::Display for ClientId {
@@ -128,12 +131,10 @@ impl GameServerState {
         // lobby can't be empty otherwise it wouldn't exist, so we must still have listeners
         let _ = lobby
             .broadcast_messages_sender
-            .send(ServerMessage::PlayerJoinedLobby {
-                player_info: ExposedLobbyPlayerInfo {
-                    id: player_id,
-                    username,
-                },
-            });
+            .send(ServerMessage::PlayerJoinedLobby(ExposedLobbyPlayerInfo {
+                id: player_id,
+                username,
+            }));
 
         Ok(lobby.broadcast_messages_sender.clone())
     }
@@ -155,7 +156,7 @@ impl GameServerState {
                 // lobby isn't empty, so we still have listeners
                 let _ = lobby
                     .broadcast_messages_sender
-                    .send(ServerMessage::PlayerLeftLobby { id: player_id });
+                    .send(ServerMessage::PlayerLeftLobby(player_id));
             }
             RemovePlayerFromLobbyResult::NewOwner(new_owner_id) => {
                 // let the other clients know that this player left the lobby, and about the new
@@ -215,7 +216,7 @@ impl GameServerState {
     }
 
     /// Adds a new client to the list of connected clients, generates a default username for it,
-    /// and creates a channel for sending messages specifically to that specific client. Returns 
+    /// and creates a channel for sending messages specifically to that specific client. Returns
     /// the receiver of that channel.
     pub fn add_client(&self, client_id: ClientId) -> mpsc::UnboundedReceiver<ServerMessage> {
         let (specific_messages_sender, specific_messages_receiver) = mpsc::unbounded_channel();
@@ -333,27 +334,21 @@ pub enum StartGameError {
 }
 
 /// The information about a lobby that is exposed to the clients.
-#[derive(Debug, Serialize, Clone, TS)]
-#[ts(export)]
+#[derive(Debug, Serialize, Clone, TypeDef)]
 pub struct ExposedLobbyInfo {
     pub name: String,
 
-    #[ts(type = "number")]
     pub id: LobbyId,
 
     pub players: Vec<ExposedLobbyPlayerInfo>,
 
-    #[ts(type = "number")]
     pub owner_id: ClientId,
 }
 
 /// The information about a lobby player that is exposed to the clients.
-#[derive(Debug, Serialize, Clone, TS)]
-#[ts(export)]
+#[derive(Debug, Serialize, Clone, TypeDef)]
 pub struct ExposedLobbyPlayerInfo {
-    #[ts(type = "number")]
     id: ClientId,
 
-    #[ts(type = "number")]
     username: String,
 }
