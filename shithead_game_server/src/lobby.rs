@@ -5,6 +5,7 @@ use rand::prelude::SliceRandom;
 use serde::{Deserialize, Serialize};
 use strum::{EnumCount, IntoEnumIterator};
 use tokio::sync::broadcast;
+use typescript_type_def::TypeDef;
 
 use crate::{
     card::{Card, Rank, Suit},
@@ -64,7 +65,7 @@ lazy_static! {
     static ref ALL_CARD_IDS: Vec<CardId> = (0..CARDS_BY_ID.cards_amount()).map(CardId).collect();
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Hash, TypeDef)]
 pub struct LobbyId(usize);
 impl LobbyId {
     /// Creates a LobbyId from a raw id. Only call this on valid lobby ids created by getting the

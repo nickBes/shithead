@@ -1,80 +1,46 @@
 use serde::{Deserialize, Serialize};
-use ts_rs::TS;
+use typescript_type_def::TypeDef;
 
 use crate::{
     game_server::{ClientId, ExposedLobbyInfo, ExposedLobbyPlayerInfo},
     lobby::LobbyId,
 };
 
-#[derive(Debug, Serialize, Clone, TS)]
-#[serde(tag = "t", rename_all = "camelCase")]
-#[ts(export)]
+#[derive(Debug, Serialize, Clone, TypeDef)]
+#[serde(rename_all = "camelCase")]
 pub enum ServerMessage {
-    ClientId {
-        #[ts(type = "number")]
-        id: ClientId,
-    },
-    Lobbies {
-        lobbies: Vec<ExposedLobbyInfo>,
-    },
-    JoinLobby {
-        #[ts(type = "number")]
-        id: LobbyId,
-    },
-    Error {
-        err: String,
-    },
-    PlayerJoinedLobby {
-        player_info: ExposedLobbyPlayerInfo,
-    },
-    PlayerLeftLobby {
-        #[ts(type = "number")]
-        id: ClientId,
-    },
+    ClientId(ClientId),
+    Lobbies(Vec<ExposedLobbyInfo>),
+    JoinLobby(LobbyId),
+    Error(String),
+    PlayerJoinedLobby(ExposedLobbyPlayerInfo),
+    PlayerLeftLobby(ClientId),
 
     // reserved for future use
-    #[serde(rename_all = "camelCase")]
-    LobbyOwnerChanged {
-        #[ts(type = "number")]
-        new_owner_id: ClientId,
-    },
+    LobbyOwnerChanged { new_owner_id: ClientId },
 
     // don't need the id of the previous owner because all the clients already know who the owner
     // is.
-    OwnerLeftLobby {
-        #[ts(type = "number")]
-        new_owner_id: ClientId,
-    },
+    OwnerLeftLobby { new_owner_id: ClientId },
 
     StartGame,
 
-    ClickCard {
-        location: ClickedCardLocation,
-    },
+    ClickCard(ClickedCardLocation),
 }
 
-#[derive(Debug, Deserialize, Clone, TS)]
-#[serde(tag = "t", rename_all = "camelCase")]
-#[ts(export)]
+#[derive(Debug, Deserialize, Clone, TypeDef)]
+#[serde(rename_all = "camelCase")]
 pub enum ClientMessage {
-    SetUsername {
-        new_username: String,
-    },
+    SetUsername(String),
     GetLobbies,
-    JoinLobby {
-        #[ts(type = "number")]
-        id: LobbyId,
-    },
-    CreateLobby {
-        name: String,
-    },
+    JoinLobby(LobbyId),
+    CreateLobby { lobby_name: String },
     StartGame,
     // ClickCard(ClickedCardLocation),
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, TS)]
-#[serde(tag = "location", rename_all = "camelCase")]
-#[ts(export)]
+#[derive(Debug, Serialize, Deserialize, Clone, TypeDef)]
+#[serde(rename_all = "camelCase")]
 pub enum ClickedCardLocation {
     Trash,
 
@@ -82,4 +48,15 @@ pub enum ClickedCardLocation {
     MyCards {
         card_index: u32,
     },
+}
+
+/// The types to export as typescript bindings
+type Bindings = (ServerMessage, ClientMessage);
+
+#[test]
+fn export_bindings() {
+    let mut buf = Vec::new();
+    typescript_type_def::write_definition_file::<_, Bindings>(&mut buf, Default::default())
+        .unwrap();
+    std::fs::write("bindings/bindings.ts", &buf).unwrap();
 }
