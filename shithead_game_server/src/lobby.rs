@@ -8,7 +8,7 @@ use tokio::sync::broadcast;
 use typescript_type_def::TypeDef;
 
 use crate::{
-    card::{Card, Rank, Suit},
+    card::{Card, CardId, Rank, Suit},
     game_server::{ClientId, BROADCAST_CHANNEL_CAPACITY},
     messages::ServerMessage,
 };
@@ -19,10 +19,6 @@ const JOKERS_AMOUNT: usize = 2;
 pub const INITIAL_CARDS_IN_HAND_AMOUNT: usize = 3;
 pub const INITIAL_THREE_CARDS_UP_AMOUNT: usize = 3;
 pub const INITIAL_THREE_CARDS_DOWN_AMOUNT: usize = 3;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct CardId(usize);
 
 /// A cache of all cards by their id
 struct CardsById {
@@ -56,13 +52,15 @@ impl CardsById {
 
     /// Returns a card given its id
     pub fn get_card(&self, card_id: CardId) -> Card {
-        self.cards_by_id[card_id.0]
+        self.cards_by_id[card_id.raw()]
     }
 }
 
 lazy_static! {
     static ref CARDS_BY_ID: CardsById = CardsById::new();
-    static ref ALL_CARD_IDS: Vec<CardId> = (0..CARDS_BY_ID.cards_amount()).map(CardId).collect();
+    static ref ALL_CARD_IDS: Vec<CardId> = (0..CARDS_BY_ID.cards_amount())
+        .map(CardId::from_raw)
+        .collect();
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Hash, TypeDef)]
@@ -236,13 +234,18 @@ impl Lobby {
                 .collect();
         }
     }
+
+    /// Returns the lobby player with the given id.
+    pub fn get_player(&self, player_id: ClientId) -> &LobbyPlayer {
+        &self.players[&player_id]
+    }
 }
 
 #[derive(Debug, Serialize)]
 pub struct LobbyPlayer {
-    cards_in_hand: Vec<CardId>,
-    three_up_cards: Vec<CardId>,
-    three_down_cards: Vec<CardId>,
+    pub cards_in_hand: Vec<CardId>,
+    pub three_up_cards: Vec<CardId>,
+    pub three_down_cards: Vec<CardId>,
 }
 
 impl LobbyPlayer {
