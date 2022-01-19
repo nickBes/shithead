@@ -1,4 +1,4 @@
-import React, { ChangeEvent, useEffect, useState, useRef } from 'react'
+import React, { ChangeEvent, useEffect, useState, useRef, MouseEventHandler, Component } from 'react'
 import FuzzySearch from 'fuzzy-search'
 import {match, __} from 'ts-pattern'
 import Lobbies from '@/components/Lobbies/lobbies'
@@ -7,6 +7,7 @@ import Lobbies from '@/components/Lobbies/lobbies'
 import styles from '@/styles/index.module.scss'
 import { clientMessageToJSON, parseMessageEvent } from '@/client/messages'
 import { types } from '@/bindings/bindings'
+import Creator from '@/components/LobbyCreator/creator'
 
 // probably should save that in a .env file
 // for both of the servers. though, this will do
@@ -14,14 +15,18 @@ import { types } from '@/bindings/bindings'
 const serverUrl = 'ws://localhost:7522'
 const globalUpdatesTime = 5000
 const lobbySearchKeys = ['name', 'id']
+let socket : WebSocket
 
 const Index : React.FC = () => {
     // we want to re-render when lobbies change
     const [lobbies, setLobbies] = useState<types.ExposedLobbyInfo[]>([])
+    const [clickedCreate, setClickedCreate] = useState(false)
     const [inputValue, setInputValue] = useState<string>()
+    const [createdLobbyID, setCreatedLobbyID] = useState(-1)
 
-    let socket : WebSocket
     let globalUpdatesInterval : NodeJS.Timer
+
+    const toggleCreateLobby = () => setClickedCreate(prev => !prev)
 
     const filterLobbies = () => {
         if (inputValue === undefined) {
@@ -32,17 +37,16 @@ const Index : React.FC = () => {
         const fuzzy = new FuzzySearch(lobbies, lobbySearchKeys, {sort: true})
         return fuzzy.search(inputValue)
     }
-
+    const startGlobalUpdate = () => setInterval(() => {
+        socket.send(clientMessageToJSON("getLobbies"))
+    }, globalUpdatesTime)
     useEffect(() => {
         // open a socket when index loaded
         socket = new WebSocket(serverUrl)
-
         // here we open an interval to get updates about
         // the lobby
         socket.onopen = (event) => {
-            globalUpdatesInterval = setInterval(() => {
-                socket.send(clientMessageToJSON("getLobbies"))
-            }, globalUpdatesTime)
+            globalUpdatesInterval = startGlobalUpdate()
         }
         // parse server messegaes and apply relevant methods
         socket.onmessage = (event) => {
@@ -52,10 +56,19 @@ const Index : React.FC = () => {
                     // update the search haystack and the lobby list
                     setLobbies(msg.lobbies)
                 })
+                .with({'joinLobby': __}, (msg) => {
+                    console.log(msg.joinLobby)
+                    setCreatedLobbyID(msg.joinLobby)
+                })
                 .otherwise(msg => console.warn(`No matching pattern for message: ${JSON.stringify(msg)}}`))
         }
         socket.onclose = (event) => {
             clearInterval(globalUpdatesInterval)
+            setTimeout(() => {
+                socket = new WebSocket(serverUrl)
+            }, globalUpdatesTime)
+            globalUpdatesInterval = startGlobalUpdate()
+            console.info('reopened a socket')
         }
     }, [])
     return (
@@ -64,16 +77,23 @@ const Index : React.FC = () => {
                 <nav className={styles.nav}>ShitHead</nav>
                 <div className={styles.formWrap}>
                     <form className={styles.form}>
-                        <label className={styles.inputLabel} htmlFor='search'>Find a Lobby</label>
-                        <input autoComplete='off' 
-                                className={styles.search} 
-                                id="search" type='text' 
-                                placeholder='Lobby Name' 
-                                // force to re-render the lobbie list
-                                onChange={(event) => setInputValue(event.target.value)}/>
-                        <Lobbies lobbies={filterLobbies()}></Lobbies>
+                        <div className={styles.lobbyWrap}>
+                            <label className={styles.inputLabel} htmlFor='search'>Find a Lobby</label>
+                            <input autoComplete='off' 
+                                    className={styles.search} 
+                                    id="search" type='text' 
+                                    placeholder='Lobby Name' 
+                                    // force to re-render the lobbie list
+                                    onChange={(event) => setInputValue(event.target.value)}/>
+                            <Lobbies lobbies={filterLobbies()}></Lobbies>
+                        </div>
+                        <button className={styles.createLobby} onClick={event => {
+                            event.preventDefault()
+                            toggleCreateLobby()
+                        }}>{clickedCreate ? "Undo" : "Create Lobby"}</button>
                     </form>
                 </div>
+                {clickedCreate ? <Creator socket={socket}/> : ''}
             </main>
         </>
     )

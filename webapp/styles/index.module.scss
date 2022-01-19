@@ -32,9 +32,8 @@
 
 .form {
     // layout
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+    display: grid;
+    grid-template-rows: 90% 10%;
 
     // text
     text-align: center;
@@ -47,6 +46,9 @@
 
     width: var(--min_w);
     max-width: 625px;
+    margin: 0px;
+    margin-bottom: 10px;
+    height: 100%;
 }
 
 .search {
@@ -57,13 +59,12 @@
     background-color: theme.$bg_color2;
     color: theme.$text_color2;
     font-family: theme.$font;
-    aspect-ratio: 10/1;
+    height: 7vh;
 
     @media (max-aspect-ratio: 1/1) {
-        aspect-ratio: 8/1;
+        height: 5vh;
     }
     font-size: clamp(theme.$s_font, theme.$m_font, 2vmin);
-
 }
 .search:focus {
     border: 0px solid transparent;
@@ -79,4 +80,35 @@
     color: theme.$text_color2;
     font-size: clamp(theme.$s_font, theme.$m_font, calc(var(--nav_h) - 4vh));
     margin: 2vmin;
+}
+
+.lobbyWrap {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    grid-row: 1;
+}
+
+.createLobby {
+    background-color: theme.$red;
+    color: theme.$text_color;
+    height: auto;
+    margin: auto;
+    // aspect-ratio: 1/1;
+    width: 15vmax;
+    aspect-ratio: 3/1;
+    text-align: center;
+    border: 1px solid theme.$text_color;
+    padding: 0px;
+    font-family: theme.$font;
+    grid-row: 2;
+    // font-size: clamp(theme.$s_font, theme.$m_font, 5vh);
+}
+.createLobby > * {
+    margin: 0px;
+}
+
+.createLobby:hover {
+    cursor: pointer;
+    filter:grayscale(.5);
 }

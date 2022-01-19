@@ -11,7 +11,7 @@ interface LobbiesProps {
 const Lobbies : React.FC<LobbiesProps> = ({lobbies}) => {
     return (
         <ol className={styles.lobbies}>
-            {lobbies.length == 0 ? <NotFound/> : lobbies.map(lobby => <Lobby {...lobby}/>)}
+            {lobbies.length == 0 ? <NotFound/> : lobbies.map(lobby => <Lobby key={lobby.id} {...lobby}/>)}
         </ol>
     )
 }
