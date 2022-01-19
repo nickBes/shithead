@@ -34,17 +34,19 @@ pub enum ServerMessage {
     ClickCard(ClickedCardLocation),
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export)]
 pub enum ClientMessage {
     Username(String),
     GetLobbies,
-    JoinLobby(LobbyId),
+    JoinLobby(#[ts(type = "number")] LobbyId),
     CreateLobby { name: String },
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export)]
 pub enum InLobbyClientMessage {
     ClickCard(ClickedCardLocation),
 }
