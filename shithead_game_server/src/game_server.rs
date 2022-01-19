@@ -101,9 +101,9 @@ impl GameServerState {
         player_id: ClientId,
         lobby_id: LobbyId,
     ) -> Result<broadcast::Sender<ServerMessage>, JoinLobbyError> {
-        let lobby = self
+        let mut lobby = self
             .lobbies
-            .get(&lobby_id)
+            .get_mut(&lobby_id)
             .ok_or(JoinLobbyError::NoSuchLobby)?;
         if lobby.players_amount() >= MAX_PLAYERS_IN_LOBBY {
             return Err(JoinLobbyError::LobbyFull);
@@ -223,6 +223,29 @@ impl GameServerState {
     pub fn remove_client(&self, client_id: ClientId) {
         self.client_infos.remove(&client_id);
     }
+
+    /// Attempts to start the game in the given lobby, given the id of the client who requested to
+    /// start the game and the id of the lobby.
+    pub fn start_game(&self, requesting_client_id: ClientId, lobby_id: LobbyId) -> Result<(),StartGameError> {
+        let mut lobby = self
+            .lobbies
+            .get_mut(&lobby_id)
+            .ok_or(StartGameError::NoSuchLobby)?;
+
+        // can only start the game if you are the owner
+        if lobby.owner_id() != requesting_client_id{
+            return Err(StartGameError::NotOwner);
+        }
+
+        // can only start the game if it's in the waiting state
+        if lobby.state() != LobbyState::Waiting{
+            return Err(StartGameError::GameAlreadyStarted)
+        }
+
+        lobby.start_game();
+
+        Ok(())
+    }
 }
 
 /// The main game server.
@@ -283,18 +306,30 @@ pub enum JoinLobbyError {
     AlreadyInALobby,
 }
 
+#[derive(Debug, Error, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum StartGameError {
+    #[error("no such lobby")]
+    NoSuchLobby,
+
+    #[error("you are not the owner of this lobby")]
+    NotOwner,
+
+    #[error("the game in this lobby has already started")]
+    GameAlreadyStarted,
+}
+
 /// The information about a lobby that is exposed to the clients.
 #[derive(Debug, Serialize, Clone, TS)]
 #[ts(export)]
 pub struct ExposedLobbyInfo {
     pub name: String,
 
-    #[ts(type = "number")] 
+    #[ts(type = "number")]
     pub id: LobbyId,
 
     pub players: Vec<ExposedLobbyPlayerInfo>,
 
-    #[ts(type = "number")] 
+    #[ts(type = "number")]
     pub owner_id: ClientId,
 }
 
@@ -302,10 +337,9 @@ pub struct ExposedLobbyInfo {
 #[derive(Debug, Serialize, Clone, TS)]
 #[ts(export)]
 pub struct ExposedLobbyPlayerInfo {
-
-    #[ts(type = "number")] 
+    #[ts(type = "number")]
     id: ClientId,
 
-    #[ts(type = "number")] 
+    #[ts(type = "number")]
     username: String,
 }
