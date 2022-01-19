@@ -6,6 +6,7 @@ use log::warn;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::{net::TcpListener, sync::broadcast};
+use ts_rs::TS;
 
 use crate::{
     client_handler::handle_client,
@@ -283,17 +284,28 @@ pub enum JoinLobbyError {
 }
 
 /// The information about a lobby that is exposed to the clients.
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Clone, TS)]
+#[ts(export)]
 pub struct ExposedLobbyInfo {
     pub name: String,
+
+    #[ts(type = "number")] 
     pub id: LobbyId,
+
     pub players: Vec<ExposedLobbyPlayerInfo>,
+
+    #[ts(type = "number")] 
     pub owner_id: ClientId,
 }
 
 /// The information about a lobby player that is exposed to the clients.
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Clone, TS)]
+#[ts(export)]
 pub struct ExposedLobbyPlayerInfo {
+
+    #[ts(type = "number")] 
     id: ClientId,
+
+    #[ts(type = "number")] 
     username: String,
 }
