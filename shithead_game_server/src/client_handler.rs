@@ -1,3 +1,4 @@
+use crate::game_server::GAME_SERVER_STATE;
 use std::{net::SocketAddr, sync::Arc};
 
 use anyhow::Context;
@@ -22,7 +23,6 @@ struct ClientSentUnknwonMsgType(Message);
 /// A client handler, responsible for communicating with the client.
 pub struct ClientHandler {
     websocket: WebSocketStream<TcpStream>,
-    server_state: Arc<GameServerState>,
     broadcast_messages_sender: broadcast::Sender<ServerMessage>,
     broadcast_messages_receiver: broadcast::Receiver<ServerMessage>,
     specific_messages_receiver: mpsc::UnboundedReceiver<ServerMessage>,
@@ -104,7 +104,7 @@ impl ClientHandler {
 
         // send the client a list of exposed lobby information
         self.send_message(&ServerMessage::Lobbies(
-            self.server_state.exposed_lobby_list(),
+            GAME_SERVER_STATE.exposed_lobby_list(),
         ))
         .await?;
 
@@ -115,7 +115,7 @@ impl ClientHandler {
     async fn handle_message(&mut self, msg: ClientMessage) -> anyhow::Result<()> {
         match msg {
             ClientMessage::SetUsername(new_username) => {
-                self.server_state.set_username(self.client_id, new_username);
+                GAME_SERVER_STATE.set_username(self.client_id, new_username);
             }
             ClientMessage::JoinLobby(lobby_id) => {
                 // if the client is already in a lobby
@@ -128,7 +128,7 @@ impl ClientHandler {
                         .await?;
                     }
                     None => {
-                        match self.server_state.join_lobby(self.client_id, lobby_id) {
+                        match GAME_SERVER_STATE.join_lobby(self.client_id, lobby_id) {
                             Ok(broadcast_messages_sender) => {
                                 self.on_joined_lobby(lobby_id, broadcast_messages_sender)
                                     .await?;
@@ -144,13 +144,13 @@ impl ClientHandler {
             }
             ClientMessage::CreateLobby { lobby_name } => {
                 let (new_lobby_id, broadcast_messages_sender) =
-                    self.server_state.create_lobby(lobby_name, self.client_id);
+                    GAME_SERVER_STATE.create_lobby(lobby_name, self.client_id);
                 self.on_joined_lobby(new_lobby_id, broadcast_messages_sender)
                     .await?;
             }
             ClientMessage::GetLobbies => {
                 self.send_message(&ServerMessage::Lobbies(
-                    self.server_state.exposed_lobby_list(),
+                    GAME_SERVER_STATE.exposed_lobby_list(),
                 ))
                 .await?;
             }
@@ -158,7 +158,7 @@ impl ClientHandler {
                 match self.lobby_id {
                     Some(lobby_id) => {
                         // if the client is in a lobby, try to start the game
-                        match self.server_state.start_game(self.client_id, lobby_id) {
+                        match GAME_SERVER_STATE.start_game(self.client_id, lobby_id) {
                             Ok(()) => {
                                 // the game has started, let all the clients know
                                 self.send_broadcast_message(ServerMessage::StartGame).await;
@@ -203,8 +203,8 @@ impl ClientHandler {
 
     async fn on_leave_lobby(&mut self) {
         self.lobby_id = None;
-        self.broadcast_messages_sender = self.server_state.broadcast_messages_sender.clone();
-        self.broadcast_messages_receiver = self.server_state.broadcast_messages_sender.subscribe();
+        self.broadcast_messages_sender = GAME_SERVER_STATE.broadcast_messages_sender.clone();
+        self.broadcast_messages_receiver = GAME_SERVER_STATE.broadcast_messages_sender.subscribe();
     }
 
     /// Sends a message to the client
@@ -238,19 +238,18 @@ impl ClientHandler {
         // connected clients and removing it from the lobby, there will be a lobby with a client
         // that doesn't seem to exist, which doesn't make sense.
         if let Some(lobby_id) = self.lobby_id {
-            self.server_state
+            GAME_SERVER_STATE
                 .remove_player_from_lobby(self.client_id, lobby_id);
         }
 
         // then remove the client from the list of connected clients.
-        self.server_state.remove_client(self.client_id);
+        GAME_SERVER_STATE.remove_client(self.client_id);
         Ok(())
     }
 }
 
 /// Handles a new client that had just connected to the game server's tcp listener.
 pub async fn handle_client(
-    server_state: Arc<GameServerState>,
     stream: TcpStream,
     addr: SocketAddr,
 ) -> anyhow::Result<()> {
@@ -258,18 +257,17 @@ pub async fn handle_client(
         .await
         .context("failed to accept websocket client {}")?;
 
-    let id = server_state.next_client_id();
+    let id = GAME_SERVER_STATE.next_client_id();
 
     // add the client to the list of connected clients.
-    let specific_messages_receiver = server_state.add_client(id);
+    let specific_messages_receiver = GAME_SERVER_STATE.add_client(id);
 
     let mut game_client = ClientHandler {
         websocket,
         client_id: id,
-        broadcast_messages_receiver: server_state.broadcast_messages_sender.subscribe(),
-        broadcast_messages_sender: server_state.broadcast_messages_sender.clone(),
+        broadcast_messages_receiver: GAME_SERVER_STATE.broadcast_messages_sender.subscribe(),
+        broadcast_messages_sender: GAME_SERVER_STATE.broadcast_messages_sender.clone(),
         specific_messages_receiver,
-        server_state,
         lobby_id: None,
     };
 
