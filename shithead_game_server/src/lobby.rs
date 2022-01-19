@@ -65,7 +65,6 @@ lazy_static! {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Hash)]
-#[serde(transparent)]
 pub struct LobbyId(usize);
 impl LobbyId {
     /// Creates a LobbyId from a raw id. Only call this on valid lobby ids created by getting the

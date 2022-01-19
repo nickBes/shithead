@@ -7,15 +7,30 @@ use crate::{
 };
 
 #[derive(Debug, Serialize, Clone, TS)]
-#[serde(rename_all = "camelCase")]
+#[serde(tag = "t", rename_all = "camelCase")]
 #[ts(export)]
 pub enum ServerMessage {
-    ClientId(#[ts(type = "number")] ClientId),
-    Lobbies(Vec<ExposedLobbyInfo>),
-    JoinLobby(#[ts(type = "number")] LobbyId),
-    Error(String),
-    PlayerJoinedLobby(ExposedLobbyPlayerInfo),
-    PlayerLeftLobby(#[ts(type = "number")] ClientId),
+    ClientId {
+        #[ts(type = "number")]
+        id: ClientId,
+    },
+    Lobbies {
+        lobbies: Vec<ExposedLobbyInfo>,
+    },
+    JoinLobby {
+        #[ts(type = "number")]
+        id: LobbyId,
+    },
+    Error {
+        err: String,
+    },
+    PlayerJoinedLobby {
+        player_info: ExposedLobbyPlayerInfo,
+    },
+    PlayerLeftLobby {
+        #[ts(type = "number")]
+        id: ClientId,
+    },
 
     // reserved for future use
     #[serde(rename_all = "camelCase")]
@@ -33,17 +48,26 @@ pub enum ServerMessage {
 
     StartGame,
 
-    ClickCard(ClickedCardLocation),
+    ClickCard {
+        location: ClickedCardLocation,
+    },
 }
 
 #[derive(Debug, Deserialize, Clone, TS)]
-#[serde(rename_all = "camelCase")]
+#[serde(tag = "t", rename_all = "camelCase")]
 #[ts(export)]
 pub enum ClientMessage {
-    Username(String),
+    SetUsername {
+        new_username: String,
+    },
     GetLobbies,
-    JoinLobby(#[ts(type = "number")] LobbyId),
-    CreateLobby { name: String },
+    JoinLobby {
+        #[ts(type = "number")]
+        id: LobbyId,
+    },
+    CreateLobby {
+        name: String,
+    },
     StartGame,
     // ClickCard(ClickedCardLocation),
 }
