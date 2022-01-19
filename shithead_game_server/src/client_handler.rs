@@ -99,13 +99,13 @@ impl ClientHandler {
     /// It sends the client its id, and a list of lobbies.
     async fn perform_handshake(&mut self) -> anyhow::Result<()> {
         // send the client its id
-        self.send_message(&ServerMessage::ClientId { id: self.client_id })
+        self.send_message(&ServerMessage::ClientId(self.client_id))
             .await?;
 
         // send the client a list of exposed lobby information
-        self.send_message(&ServerMessage::Lobbies {
-            lobbies: self.server_state.exposed_lobby_list(),
-        })
+        self.send_message(&ServerMessage::Lobbies(
+            self.server_state.exposed_lobby_list(),
+        ))
         .await?;
 
         Ok(())
@@ -114,17 +114,17 @@ impl ClientHandler {
     /// Handles a message received from the client
     async fn handle_message(&mut self, msg: ClientMessage) -> anyhow::Result<()> {
         match msg {
-            ClientMessage::SetUsername { new_username } => {
+            ClientMessage::SetUsername(new_username) => {
                 self.server_state.set_username(self.client_id, new_username);
             }
-            ClientMessage::JoinLobby { id: lobby_id } => {
+            ClientMessage::JoinLobby(lobby_id) => {
                 // if the client is already in a lobby
                 match self.lobby_id {
                     Some(_) => {
                         // let the client know about the error that occured
-                        self.send_message(&ServerMessage::Error {
-                            err: JoinLobbyError::AlreadyInALobby.to_string(),
-                        })
+                        self.send_message(&ServerMessage::Error(
+                            JoinLobbyError::AlreadyInALobby.to_string(),
+                        ))
                         .await?;
                     }
                     None => {
@@ -135,25 +135,24 @@ impl ClientHandler {
                             }
                             Err(err) => {
                                 // let the client know about the error that occured
-                                self.send_message(&ServerMessage::Error {
-                                    err: err.to_string(),
-                                })
-                                .await?;
+                                self.send_message(&ServerMessage::Error(err.to_string()))
+                                    .await?;
                             }
                         }
                     }
                 }
             }
-            ClientMessage::CreateLobby { name } => {
-                let (new_lobby_id, broadcast_messages_sender) =
-                    self.server_state.create_lobby(name, self.client_id);
+            ClientMessage::CreateLobby(create_lobby_request) => {
+                let (new_lobby_id, broadcast_messages_sender) = self
+                    .server_state
+                    .create_lobby(create_lobby_request.lobby_name, self.client_id);
                 self.on_joined_lobby(new_lobby_id, broadcast_messages_sender)
                     .await?;
             }
             ClientMessage::GetLobbies => {
-                self.send_message(&ServerMessage::Lobbies {
-                    lobbies: self.server_state.exposed_lobby_list(),
-                })
+                self.send_message(&ServerMessage::Lobbies(
+                    self.server_state.exposed_lobby_list(),
+                ))
                 .await?;
             }
             ClientMessage::StartGame => {
@@ -167,19 +166,17 @@ impl ClientHandler {
                             }
                             Err(err) => {
                                 // failed to start the game, let the client know what happened
-                                self.send_message(&ServerMessage::Error {
-                                    err: err.to_string(),
-                                })
-                                .await?;
+                                self.send_message(&ServerMessage::Error(err.to_string()))
+                                    .await?;
                             }
                         }
                     }
                     None => {
                         // if the client is not in a lobby, he is definitely not the owner, so let
                         // him know
-                        self.send_message(&ServerMessage::Error {
-                            err: StartGameError::NotOwner.to_string(),
-                        })
+                        self.send_message(&ServerMessage::Error(
+                            StartGameError::NotOwner.to_string(),
+                        ))
                         .await?;
                     }
                 }
@@ -199,7 +196,7 @@ impl ClientHandler {
         self.broadcast_messages_sender = lobby_broadcast_messages_sender;
 
         // let the client know that he's now in the lobby
-        self.send_message(&ServerMessage::JoinLobby { id: new_lobby_id })
+        self.send_message(&ServerMessage::JoinLobby(new_lobby_id))
             .await?;
 
         Ok(())
