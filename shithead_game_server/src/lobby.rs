@@ -1,24 +1,22 @@
 use dashmap::{DashMap, DashSet};
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
+use strum::EnumCount;
+use strum::IntoEnumIterator;
 use tokio::sync::broadcast;
 
 use crate::{
+    card::{Card, Rank, Suit},
     game_server::{ClientId, BROADCAST_CHANNEL_CAPACITY},
     messages::ServerMessage,
 };
 
 pub const MAX_PLAYERS_IN_LOBBY: usize = 6;
+pub const JOKERS_AMOUNT: usize = 2;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct CardId(usize);
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct Card {
-    pub rank: (),
-    pub suit: (),
-}
 
 /// A cache of all cards by their id
 struct CardsById {
@@ -29,10 +27,17 @@ impl CardsById {
     pub fn new() -> Self {
         let mut cards_by_id = Vec::new();
 
-        // this part is just for testing purposes
-        // in the future when the card struct is fully implemented this will initialize an actual deck
-        for _ in 0..54 {
-            cards_by_id.push(Card { rank: (), suit: () })
+        // initialize with all possible cards
+        for rank in Rank::iter() {
+            // if the card is a joker use only 2 suits, otherwise use all suits
+            let suits_amount = if rank == Rank::Joker {
+                JOKERS_AMOUNT
+            } else {
+                Suit::COUNT
+            };
+            for suit in Suit::iter().take(suits_amount) {
+                cards_by_id.push(Card { rank, suit })
+            }
         }
 
         Self { cards_by_id }

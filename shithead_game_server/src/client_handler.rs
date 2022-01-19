@@ -123,7 +123,8 @@ impl ClientHandler {
                     None => {
                         match self.server_state.join_lobby(self.client_id, lobby_id) {
                             Ok(broadcast_messages_sender) => {
-                                self.on_joined_lobby(lobby_id, broadcast_messages_sender).await?;
+                                self.on_joined_lobby(lobby_id, broadcast_messages_sender)
+                                    .await?;
                             }
                             Err(err) => {
                                 // let the client know about the error that occured
