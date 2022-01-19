@@ -6,7 +6,7 @@ use crate::{
     lobby::LobbyId, card::CardId,
 };
 
-#[derive(Debug, Serialize, Clone, TypeDef)]
+#[derive(Debug, Serialize, Deserialize, Clone, TypeDef)]
 #[serde(rename_all = "camelCase")]
 pub enum ServerMessage {
     ClientId(ClientId),
@@ -33,7 +33,7 @@ pub enum ServerMessage {
     ClickCard(ClickedCardLocation),
 }
 
-#[derive(Debug, Deserialize, Clone, TypeDef)]
+#[derive(Debug, Serialize, Deserialize, Clone, TypeDef)]
 #[serde(rename_all = "camelCase")]
 pub enum ClientMessage {
     SetUsername(String),
