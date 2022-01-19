@@ -12,6 +12,7 @@ use crate::{
 };
 
 pub const MAX_PLAYERS_IN_LOBBY: usize = 6;
+pub const JOKERS_AMOUNT: usize = 2;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -29,7 +30,11 @@ impl CardsById {
         // initialize with all possible cards
         for rank in Rank::iter() {
             // if the card is a joker use only 2 suits, otherwise use all suits
-            let suits_amount = if rank == Rank::Joker { 2 } else { Suit::COUNT };
+            let suits_amount = if rank == Rank::Joker {
+                JOKERS_AMOUNT
+            } else {
+                Suit::COUNT
+            };
             for suit in Suit::iter().take(suits_amount) {
                 cards_by_id.push(Card { rank, suit })
             }
