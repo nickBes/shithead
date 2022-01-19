@@ -3,7 +3,10 @@ use std::{net::SocketAddr, sync::Arc};
 use anyhow::Context;
 use futures::{SinkExt, StreamExt};
 use thiserror::Error;
-use tokio::{net::TcpStream, sync::broadcast};
+use tokio::{
+    net::TcpStream,
+    sync::{broadcast, mpsc},
+};
 use tokio_tungstenite::{tungstenite::Message, WebSocketStream};
 
 use crate::{
@@ -22,6 +25,7 @@ pub struct ClientHandler {
     server_state: Arc<GameServerState>,
     broadcast_messages_sender: broadcast::Sender<ServerMessage>,
     broadcast_messages_receiver: broadcast::Receiver<ServerMessage>,
+    specific_messages_receiver: mpsc::UnboundedReceiver<ServerMessage>,
     client_id: ClientId,
     lobby_id: Option<LobbyId>,
 }
@@ -79,7 +83,12 @@ impl ClientHandler {
                 broadcast_msg_recv_result = self.broadcast_messages_receiver.recv() => {
                     // received a broadcast message
                     let broadcast_msg = broadcast_msg_recv_result.expect("the broadcast messages channel was closed");
-                    self.send_message(&broadcast_msg).await.context("failed to send broadcast message to client")?;
+                    self.send_message(&broadcast_msg).await?;
+                },
+                specific_msg_recv_result = self.specific_messages_receiver.recv() => {
+                    // received a message to be sent specifically to this client
+                    let specific_msg = specific_msg_recv_result.expect("the client specific messages channel was closed while the client was still running");
+                    self.send_message(&specific_msg).await?;
                 }
             }
         }
@@ -91,15 +100,13 @@ impl ClientHandler {
     async fn perform_handshake(&mut self) -> anyhow::Result<()> {
         // send the client its id
         self.send_message(&ServerMessage::ClientId { id: self.client_id })
-            .await
-            .context("failed to send the client its id")?;
+            .await?;
 
         // send the client a list of exposed lobby information
         self.send_message(&ServerMessage::Lobbies {
             lobbies: self.server_state.exposed_lobby_list(),
         })
-        .await
-        .context("failed to send the list of lobbies to the client")?;
+        .await?;
 
         Ok(())
     }
@@ -258,13 +265,14 @@ pub async fn handle_client(
     let id = server_state.next_client_id();
 
     // add the client to the list of connected clients.
-    server_state.add_client(id);
+    let specific_messages_receiver = server_state.add_client(id);
 
     let mut game_client = ClientHandler {
         websocket,
         client_id: id,
         broadcast_messages_receiver: server_state.broadcast_messages_sender.subscribe(),
         broadcast_messages_sender: server_state.broadcast_messages_sender.clone(),
+        specific_messages_receiver,
         server_state,
         lobby_id: None,
     };
