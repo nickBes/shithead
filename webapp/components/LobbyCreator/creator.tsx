@@ -1,9 +1,9 @@
-import { clientMessageToJSON } from "@/client/messages"
+import Socket from "@/client/socket"
 import React, { FormEvent } from "react"
 import styles from './creator.module.scss'
 
 interface CreatorProps {
-    socket:WebSocket
+    socket:Socket
 }
 
 const Creator : React.FC<CreatorProps> = ({socket}) => {
@@ -13,11 +13,11 @@ const Creator : React.FC<CreatorProps> = ({socket}) => {
         if (formData.has('lobbyName')) {
             let lobbyName = formData.get('lobbyName')
             if (typeof lobbyName == "string") {
-                socket.send(clientMessageToJSON({
+                socket.send({
                     createLobby: {
                         lobby_name: lobbyName
                     }
-                }))
+                })
             }
         }
     }
@@ -25,7 +25,7 @@ const Creator : React.FC<CreatorProps> = ({socket}) => {
     return (
         <div className={styles.creator}>
             <form className={styles.creatorForm} onSubmit={(event) => createLobby(event)}>
-                <input name='lobbyName' placeholder='Lobby Name' type="text"/>
+                <input autoComplete="off" name='lobbyName' placeholder='Lobby Name' type="text"/>
                 <button type="submit">Create New Lobby</button>
             </form>
         </div>

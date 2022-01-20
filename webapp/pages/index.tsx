@@ -5,17 +5,16 @@ import Lobbies from '@/components/Lobbies/lobbies'
 
 // custom stuff
 import styles from '@/styles/index.module.scss'
-import { clientMessageToJSON, parseMessageEvent } from '@/client/messages'
 import { types } from '@/bindings/bindings'
 import Creator from '@/components/LobbyCreator/creator'
+import Socket, { OnMessageCallback, UpdateObject } from '@/client/socket'
 
 // probably should save that in a .env file
 // for both of the servers. though, this will do
 // the work for now
 const serverUrl = 'ws://localhost:7522'
-const globalUpdatesTime = 5000
 const lobbySearchKeys = ['name', 'id']
-let socket : WebSocket
+let socket : Socket
 
 const Index : React.FC = () => {
     // we want to re-render when lobbies change
@@ -23,8 +22,6 @@ const Index : React.FC = () => {
     const [clickedCreate, setClickedCreate] = useState(false)
     const [inputValue, setInputValue] = useState<string>()
     const [createdLobbyID, setCreatedLobbyID] = useState(-1)
-
-    let globalUpdatesInterval : NodeJS.Timer
 
     const toggleCreateLobby = () => setClickedCreate(prev => !prev)
 
@@ -37,39 +34,30 @@ const Index : React.FC = () => {
         const fuzzy = new FuzzySearch(lobbies, lobbySearchKeys, {sort: true})
         return fuzzy.search(inputValue)
     }
-    const startGlobalUpdate = () => setInterval(() => {
-        socket.send(clientMessageToJSON("getLobbies"))
-    }, globalUpdatesTime)
+    // configuration for constant server updates
+    // about the lobby
+    const updateObject : UpdateObject = {
+        callback: (sk) => {
+            sk.send("getLobbies")
+        },
+        timeInterval: 1000
+    }
+    // parse server messegaes and apply relevant methods
+    const onMessage : OnMessageCallback = (message) => {
+        match(message)
+            .with({lobbies: __}, (msg) => {
+                // update the search haystack and the lobby list
+                console.log(msg.lobbies)
+                setLobbies(msg.lobbies)
+            })
+            .with({joinLobby: __}, (msg) => {
+                setCreatedLobbyID(msg.joinLobby)
+            })
+            .otherwise(msg => console.warn(`Don't have a matching pattern for message: ${JSON.stringify(msg)}`))
+    }
     useEffect(() => {
         // open a socket when index loaded
-        socket = new WebSocket(serverUrl)
-        // here we open an interval to get updates about
-        // the lobby
-        socket.onopen = (event) => {
-            globalUpdatesInterval = startGlobalUpdate()
-        }
-        // parse server messegaes and apply relevant methods
-        socket.onmessage = (event) => {
-            const message = parseMessageEvent(event)
-            match(message)
-                .with({lobbies: __}, (msg) => {
-                    // update the search haystack and the lobby list
-                    setLobbies(msg.lobbies)
-                })
-                .with({'joinLobby': __}, (msg) => {
-                    console.log(msg.joinLobby)
-                    setCreatedLobbyID(msg.joinLobby)
-                })
-                .otherwise(msg => console.warn(`No matching pattern for message: ${JSON.stringify(msg)}}`))
-        }
-        socket.onclose = (event) => {
-            clearInterval(globalUpdatesInterval)
-            setTimeout(() => {
-                socket = new WebSocket(serverUrl)
-            }, globalUpdatesTime)
-            globalUpdatesInterval = startGlobalUpdate()
-            console.info('reopened a socket')
-        }
+        socket = new Socket(serverUrl, updateObject, onMessage)
     }, [])
     return (
         <>
