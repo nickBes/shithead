@@ -1,7 +1,7 @@
 import React, { ChangeEvent, useEffect, useState, useRef, MouseEventHandler, Component } from 'react'
 import FuzzySearch from 'fuzzy-search'
 import {match, __} from 'ts-pattern'
-import Lobbies from '@/components/Lobbies/lobbies'
+import Lobbies from '@/components/lobby_list/lobbies'
 
 // custom stuff
 import styles from '@/styles/index.module.scss'
@@ -47,7 +47,6 @@ const Index : React.FC = () => {
         match(message)
             .with({lobbies: __}, (msg) => {
                 // update the search haystack and the lobby list
-                console.log(msg.lobbies)
                 setLobbies(msg.lobbies)
             })
             .with({joinLobby: __}, (msg) => {
