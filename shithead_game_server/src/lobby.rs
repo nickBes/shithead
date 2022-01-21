@@ -407,15 +407,16 @@ impl Lobby {
 
     /// Finds the id of the player who will play in the next turn.
     fn next_turn_player_id(&self) -> ClientId {
-        match &self.current_turn {
-            Some(current_turn) => self
-                .player_list
-                .find_next_turn_player_after(current_turn.player_id),
-            None => self.player_list.first_turn_player(),
-        }
+        let current_turn = self
+            .current_turn
+            .as_ref()
+            .expect("requesting the next turn while there is no current turn");
+        self.player_list
+            .find_next_turn_player_after(current_turn.player_id)
     }
 
     /// The player has finished playing his turn, move on the next turn.
+    // this is currently unused but will be used once the `ClickedCard` message is implemented.
     pub async fn turn_finished(&mut self) {
         let new_turn_player_id = self.next_turn_player_id();
 
