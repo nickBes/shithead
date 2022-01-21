@@ -1,4 +1,4 @@
-use std::sync::{atomic::AtomicUsize, Arc};
+use std::sync::atomic::AtomicUsize;
 
 use anyhow::Context;
 use dashmap::DashMap;

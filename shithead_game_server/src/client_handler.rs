@@ -1,5 +1,5 @@
 use crate::game_server::GAME_SERVER_STATE;
-use std::{net::SocketAddr, sync::Arc};
+use std::net::SocketAddr;
 
 use anyhow::Context;
 use futures::{SinkExt, StreamExt};
@@ -11,7 +11,7 @@ use tokio::{
 use tokio_tungstenite::{tungstenite::Message, WebSocketStream};
 
 use crate::{
-    game_server::{ClientId, GameServerState, JoinLobbyError, StartGameError},
+    game_server::{ClientId, JoinLobbyError, StartGameError},
     lobby::LobbyId,
     messages::{ClientMessage, ServerMessage},
 };

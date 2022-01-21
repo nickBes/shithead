@@ -3,7 +3,7 @@ use game_server::GameServer;
 use log::error;
 use simple_logger::SimpleLogger;
 
-mod card;
+mod cards;
 mod client_handler;
 mod game_server;
 mod lobby;
