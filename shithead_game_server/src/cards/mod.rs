@@ -1,6 +1,14 @@
+mod cards_by_id_cache;
+mod deck;
+
+pub use cards_by_id_cache::*;
+pub use deck::*;
+
 use serde::{Deserialize, Serialize};
 use strum_macros::{EnumCount, EnumIter};
 use typescript_type_def::TypeDef;
+
+pub const JOKERS_AMOUNT: usize = 2;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TypeDef)]
 #[serde(transparent)]

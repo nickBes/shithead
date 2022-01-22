@@ -2,8 +2,9 @@ use serde::{Deserialize, Serialize};
 use typescript_type_def::TypeDef;
 
 use crate::{
+    cards::CardId,
     game_server::{ClientId, ExposedLobbyInfo, ExposedLobbyPlayerInfo},
-    lobby::LobbyId, card::CardId,
+    lobby::LobbyId,
 };
 
 #[derive(Debug, Serialize, Clone, TypeDef)]
@@ -17,15 +18,19 @@ pub enum ServerMessage {
     PlayerLeftLobby(ClientId),
 
     // reserved for future use
-    LobbyOwnerChanged { new_owner_id: ClientId },
+    LobbyOwnerChanged {
+        new_owner_id: ClientId,
+    },
 
     // don't need the id of the previous owner because all the clients already know who the owner
     // is.
-    OwnerLeftLobby { new_owner_id: ClientId },
+    OwnerLeftLobby {
+        new_owner_id: ClientId,
+    },
 
     StartGame,
 
-    InitialCards{
+    InitialCards {
         cards_in_hand: Vec<CardId>,
         three_up_cards: Vec<CardId>,
     },
@@ -39,7 +44,12 @@ pub enum ClientMessage {
     SetUsername(String),
     GetLobbies,
     JoinLobby(LobbyId),
-    CreateLobby { lobby_name: String },
+
+    #[serde(rename_all = "camelCase")]
+    CreateLobby {
+        lobby_name: String,
+    },
+
     StartGame,
     // ClickCard(ClickedCardLocation),
 }
@@ -55,11 +65,11 @@ pub enum ClickedCardLocation {
     },
 }
 
-/// The types to export as typescript bindings
-type Bindings = (ServerMessage, ClientMessage);
-
 #[test]
 fn export_bindings() {
+    /// The types to export as typescript bindings
+    type Bindings = (ServerMessage, ClientMessage);
+
     let mut buf = Vec::new();
     typescript_type_def::write_definition_file::<_, Bindings>(&mut buf, Default::default())
         .unwrap();

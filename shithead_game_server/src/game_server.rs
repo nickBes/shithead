@@ -1,7 +1,8 @@
-use std::sync::{atomic::AtomicUsize, Arc};
+use std::sync::atomic::AtomicUsize;
 
 use anyhow::Context;
 use dashmap::DashMap;
+use lazy_static::lazy_static;
 use log::warn;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -19,6 +20,10 @@ use crate::{
 
 pub const SERVER_BIND_ADDR: &str = "0.0.0.0:7522";
 pub const BROADCAST_CHANNEL_CAPACITY: usize = 200;
+
+lazy_static! {
+    pub static ref GAME_SERVER_STATE: GameServerState = GameServerState::new();
+}
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Clone, Copy, TypeDef)]
 #[serde(transparent)]
@@ -39,6 +44,7 @@ pub struct ClientInfo {
 
 /// The state of the game server.
 /// Stores all information about lobbies, games, and everthing else server related.
+/// Stored as a global variable, because it lives throughout the whole live of the server.
 pub struct GameServerState {
     /// The id of the next player to connect to the game server.
     next_client_id: AtomicUsize,
@@ -86,7 +92,7 @@ impl GameServerState {
             self.next_lobby_id
                 .fetch_add(1, std::sync::atomic::Ordering::Relaxed),
         );
-        let lobby = Lobby::new(name, owner_id);
+        let lobby = Lobby::new(lobby_id,name, owner_id);
 
         // save the broadcast_messages_sender before giving ownership of the lobby
         let broadcast_messages_sender = lobby.broadcast_messages_sender.clone();
@@ -98,11 +104,16 @@ impl GameServerState {
 
     /// Returns information about a client, assuming it's currently in a lobby.
     ///
-    /// If the client is in a lobby, there must still be an entry for it in 
+    /// If the client is in a lobby, there must still be an entry for it in
     /// `GameServerState::client_infos`, since it is only removed from there after being removed
     /// from a lobby
-    pub fn get_client_in_lobby(&self, client_id: ClientId)->dashmap::mapref::one::Ref<ClientId, ClientInfo>{
-        self.client_infos.get(&client_id).expect("client is still in lobby but removed from client list")
+    pub fn get_client_in_lobby(
+        &self,
+        client_id: ClientId,
+    ) -> dashmap::mapref::one::Ref<ClientId, ClientInfo> {
+        self.client_infos
+            .get(&client_id)
+            .expect("client is still in lobby but removed from client list")
     }
 
     /// Tries to add a player to a lobby.
@@ -199,13 +210,9 @@ impl GameServerState {
                     id: lobby_id,
                     players: lobby
                         .player_ids()
-                        .map(|player_id| {
-                            ExposedLobbyPlayerInfo {
-                                id: player_id,
-                                username: self.get_client_in_lobby(player_id)
-                                    .username
-                                    .clone(),
-                            }
+                        .map(|player_id| ExposedLobbyPlayerInfo {
+                            id: player_id,
+                            username: self.get_client_in_lobby(player_id).username.clone(),
                         })
                         .collect(),
                     owner_id: lobby.owner_id(),
@@ -278,13 +285,23 @@ impl GameServerState {
             // the information about this client as a lobby player
             let lobby_player_info = lobby.get_player(player_id);
 
-            client_info.specific_messages_sender.send(ServerMessage::InitialCards{
-                cards_in_hand: lobby_player_info.cards_in_hand.clone(),
-                three_up_cards: lobby_player_info.three_up_cards.clone(),
-            }).unwrap();
+            client_info
+                .specific_messages_sender
+                .send(ServerMessage::InitialCards {
+                    cards_in_hand: lobby_player_info.cards_in_hand.clone(),
+                    three_up_cards: lobby_player_info.three_up_cards.clone(),
+                })
+                .unwrap();
         }
 
         Ok(())
+    }
+
+    /// Tells the lobby with the given id that the current turn has timed out.
+    pub fn turn_timeout(&self, lobby_id: LobbyId){
+        if let Some(mut lobby) = self.lobbies.get_mut(&lobby_id){
+            lobby.turn_timeout();
+        }
     }
 }
 
@@ -293,9 +310,6 @@ impl GameServerState {
 pub struct GameServer {
     /// The tcp listener, for accepting clients
     listener: TcpListener,
-
-    /// The state of the server, passed down to the client handlers.
-    state: Arc<GameServerState>,
 }
 impl GameServer {
     /// Creates a new game server
@@ -304,7 +318,6 @@ impl GameServer {
             listener: TcpListener::bind(SERVER_BIND_ADDR)
                 .await
                 .context("failed to create tcp listener")?,
-            state: Arc::new(GameServerState::new()),
         })
     }
 
@@ -318,9 +331,8 @@ impl GameServer {
                     continue;
                 }
             };
-            let server_state = Arc::clone(&self.state);
             let _ = tokio::spawn(async move {
-                if let Err(error) = handle_client(server_state, stream, addr).await {
+                if let Err(error) = handle_client(stream, addr).await {
                     warn!(
                         "failed to handle client with address {}, error: {:?}",
                         addr, error
