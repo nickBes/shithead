@@ -74,6 +74,10 @@ impl ClientHandler {
                             let msg: ClientMessage = serde_json::from_str(&text).context("failed to parse message")?;
                             self.handle_message(msg).await.context("failed to handle message from client")?;
                         }
+                        Message::Ping(ping_data)=>{
+                            // received a ping message, send a pong message
+                            self.websocket.send(Message::Pong(ping_data)).await.context("failed to send pong message")?;
+                        }
                         Message::Close(_) => {
                             break;
                         }
