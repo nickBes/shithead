@@ -1,0 +1,95 @@
+@use '@/styles/theme';
+
+.lobbies {
+    padding: 0px;
+    margin-top: 0px;
+    margin-bottom: 0px;
+    width: 100%;
+    height: 100%;
+    background-color: theme.$bg_color3;
+    display: flex;
+    flex-direction: column;
+    list-style-type: none;
+    overflow-y: scroll;
+    font-size: clamp(theme.$s_font, theme.$m_font, 2vmin);
+    border: theme.$outline;
+    border-top: none;
+}
+
+.lobby {
+    border-bottom: 1px solid theme.$bg_color;
+    padding: 1vmin;
+    display: flex;
+    gap: 2vmin;
+}
+
+.lobby > p {
+    margin: 0%;
+}
+
+.lobby:hover {
+    cursor: pointer;
+    background-color: theme.$bg_color;
+}
+
+.notFound {
+    margin: auto;
+    text-align: center;
+}
+
+.formWrap {
+    display: flex;
+    justify-content: center;
+}
+
+.form {
+    // layout
+    display: grid;
+    grid-template-rows: 90% 10%;
+
+    // text
+    text-align: center;
+    
+    // sizing
+    --min_w: 50%;
+    @media (max-aspect-ratio: 1/1) {
+        --min_w: 80%
+    }
+
+    width: var(--min_w);
+    max-width: 625px;
+    margin: 0px;
+    margin-bottom: 10px;
+    height: 100%;
+}
+
+.search {
+    width: 100%;
+    //text
+    text-align: center;
+    border: 0px solid transparent;
+    background-color: theme.$bg_color2;
+    color: theme.$text_color2;
+    font-family: theme.$font;
+    height: 7vh;
+
+    @media (max-aspect-ratio: 1/1) {
+        height: 5vh;
+    }
+    font-size: clamp(theme.$s_font, theme.$m_font, 2vmin);
+}
+.search:focus {
+    border: 0px solid transparent;
+    outline: theme.$outline;
+    outline-offset: -1px;
+}
+.search::placeholder {
+    font-size: clamp(theme.$s_font, theme.$m_font, 2vmin);
+}
+
+
+.inputLabel {
+    color: theme.$text_color2;
+    font-size: clamp(theme.$s_font, theme.$m_font, calc(var(--nav_h) - 4vh));
+    margin: 2vmin;
+}

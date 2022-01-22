@@ -1,16 +1,16 @@
 import types from '@/bindings/bindings'
 
-type OnUpdateCallback = (socket:Socket) => void
-export type OnMessageCallback = (message:types.ServerMessage) => void
+export type ServerCallback = (socket:Socket) => void
+export type OnMessageCallback = (message:types.ServerMessage, socket:Socket) => void
 
 export interface UpdateObject {
-    callback: OnUpdateCallback
+    callback: ServerCallback | undefined
     timeInterval: number
 }
 
 export default class Socket {
     connection : WebSocket;
-    openMethod : (socket : Socket) => void
+    onOpen : ServerCallback
     updateInterval : number
     reconnectionTimout = 5000
     updateObject : UpdateObject
@@ -18,16 +18,18 @@ export default class Socket {
 
     // has to be run only in useEffect because we need the window to exist
     // to create a websocket and run updates
-    constructor(serverUrl : string, updateObject : UpdateObject, onMessage:OnMessageCallback) {
+    constructor(serverUrl : string, onOpen : ServerCallback, updateObject : UpdateObject, onMessage:OnMessageCallback) {
         this.connection = new WebSocket(serverUrl);
         this.onMessage = onMessage
         this.updateObject = updateObject
+        this.onOpen = onOpen
 
         this.setSocketHandlers()
     }
 
     setSocketHandlers() {
         this.connection.onopen = () => {
+            this.onOpen(this)
             console.info("Successfuly connected.")
             this.update(this.updateObject)
         }
@@ -35,7 +37,7 @@ export default class Socket {
             // bad implementation by ts, will read that: 
             // https://dev.to/codeprototype/safely-parsing-json-to-a-typescript-interface-3lkj 
             // some day
-            this.onMessage(JSON.parse(event.data) as types.ServerMessage)
+            this.onMessage(JSON.parse(event.data) as types.ServerMessage, this)
         }
         this.connection.onclose = () => this.reconnect()
     }
@@ -48,9 +50,8 @@ export default class Socket {
     }
 
     update(updateObject : UpdateObject) {
-        const socket = this
         this.updateInterval = window.setInterval(() => {
-            updateObject.callback(socket)
+            updateObject.callback?.(this)
         }, 
         updateObject.timeInterval)
     }

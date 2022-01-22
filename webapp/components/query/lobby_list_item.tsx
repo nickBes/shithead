@@ -1,8 +1,8 @@
 import React from "react"
 import type from '@/bindings/bindings'
-import styles from './lobbies.module.scss'
+import styles from './query.module.scss'
 
-const Lobby : React.FC<type.ExposedLobbyInfo> = ({id, name, players, owner_id}) => {
+const LobbyListItem : React.FC<type.ExposedLobbyInfo> = ({id, name, players, owner_id}) => {
     return (
         <li className={styles.lobby}>
             <p>#{id}</p>
@@ -13,4 +13,4 @@ const Lobby : React.FC<type.ExposedLobbyInfo> = ({id, name, players, owner_id}) 
     )
 }
 
-export default Lobby
+export default LobbyListItem

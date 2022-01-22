@@ -10,7 +10,8 @@
     @media (max-aspect-ratio: 1/1) {
         --nav_h: 15vh;
     }
-    grid-template-rows: var(--nav_h) calc(100vh - var(--nav_h));
+    grid-template-rows: var(--nav_h) calc(100vh - var(--nav_h) - 10vh) 10vh;
+    grid-template-columns: 1;
 }
 
 .nav {
@@ -23,70 +24,7 @@
     // get font size between the large one and  $nav_h - 2vh,
     // though the prefered size is extra large
     font-size: clamp(theme.$l_font, theme.$xl_font, calc(var(--nav_h) - 2vh));
-}
-
-.formWrap {
-    display: flex;
-    justify-content: center;
-}
-
-.form {
-    // layout
-    display: grid;
-    grid-template-rows: 90% 10%;
-
-    // text
-    text-align: center;
     
-    // sizing
-    --min_w: 50%;
-    @media (max-aspect-ratio: 1/1) {
-        --min_w: 80%
-    }
-
-    width: var(--min_w);
-    max-width: 625px;
-    margin: 0px;
-    margin-bottom: 10px;
-    height: 100%;
-}
-
-.search {
-    width: 100%;
-    //text
-    text-align: center;
-    border: 0px solid transparent;
-    background-color: theme.$bg_color2;
-    color: theme.$text_color2;
-    font-family: theme.$font;
-    height: 7vh;
-
-    @media (max-aspect-ratio: 1/1) {
-        height: 5vh;
-    }
-    font-size: clamp(theme.$s_font, theme.$m_font, 2vmin);
-}
-.search:focus {
-    border: 0px solid transparent;
-    outline: theme.$outline;
-    outline-offset: -1px;
-}
-.search::placeholder {
-    font-size: clamp(theme.$s_font, theme.$m_font, 2vmin);
-}
-
-
-.inputLabel {
-    color: theme.$text_color2;
-    font-size: clamp(theme.$s_font, theme.$m_font, calc(var(--nav_h) - 4vh));
-    margin: 2vmin;
-}
-
-.lobbyWrap {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    grid-row: 1;
 }
 
 .createLobby {
@@ -102,7 +40,6 @@
     border: 1px solid theme.$text_color;
     padding: 0px;
     font-family: theme.$font;
-    grid-row: 2;
     // font-size: clamp(theme.$s_font, theme.$m_font, 5vh);
 }
 .createLobby > * {

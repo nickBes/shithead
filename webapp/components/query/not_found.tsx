@@ -1,5 +1,5 @@
 import React from "react"
-import styles from './lobbies.module.scss'
+import styles from './query.module.scss'
 
 const NotFound : React.FC = () => {
     return (
