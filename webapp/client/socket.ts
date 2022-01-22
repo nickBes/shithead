@@ -3,6 +3,9 @@ import types from '@/bindings/bindings'
 export type ServerCallback = (socket:Socket) => void
 export type OnMessageCallback = (message:types.ServerMessage, socket:Socket) => void
 
+// an object for setting up timed communication
+// with the server: for every timeInterval that is passed
+// the callback method will be called
 export interface UpdateObject {
     callback: ServerCallback | undefined
     timeInterval: number
@@ -12,7 +15,7 @@ export default class Socket {
     connection : WebSocket;
     onOpen : ServerCallback
     updateInterval : number
-    reconnectionTimout = 5000
+    reconnectionTimeout = 5000
     updateObject : UpdateObject
     onMessage : OnMessageCallback
 
@@ -68,6 +71,6 @@ export default class Socket {
         setTimeout(() => {
             this.connection = new WebSocket(this.connection.url)
             this.setSocketHandlers()
-        }, this.reconnectionTimout)
+        }, this.reconnectionTimeout)
     }
 }

@@ -5,7 +5,7 @@ import LobbyQuery from '@/components/query/lobby_query'
 // custom stuff
 import styles from '@/styles/index.module.scss'
 import { types } from '@/bindings/bindings'
-import Creator from '@/components/lobby_creator/creator'
+import LobbyCreator from '@/components/lobby_creator/creator'
 import Socket, { OnMessageCallback, ServerCallback, UpdateObject } from '@/client/socket'
 
 // probably should save that in a .env file
@@ -71,7 +71,7 @@ const Index : React.FC = () => {
                         .with("createLobby", () => {
                             return (
                                 <>
-                                    <Creator socket={socket}/>
+                                    <LobbyCreator socket={socket}/>
                                     <button className={styles.createLobby}
                                             onClick={event => {
                                                 event.preventDefault()

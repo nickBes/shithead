@@ -2,11 +2,11 @@ import Socket from "@/client/socket"
 import React, { FormEvent } from "react"
 import styles from './creator.module.scss'
 
-interface CreatorProps {
+interface LobbyCreatorProps {
     socket:Socket
 }
 
-const Creator : React.FC<CreatorProps> = ({socket}) => {
+const LobbyCreator : React.FC<LobbyCreatorProps> = ({socket}) => {
     const createLobby = (event : FormEvent<HTMLFormElement>) => {
         event?.preventDefault()
         let formData = new FormData(event.currentTarget)
@@ -32,4 +32,4 @@ const Creator : React.FC<CreatorProps> = ({socket}) => {
     )
 }
 
-export default Creator
+export default LobbyCreator
