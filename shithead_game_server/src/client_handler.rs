@@ -122,8 +122,8 @@ impl ClientHandler {
                 GAME_SERVER_STATE.set_username(self.client_id, new_username);
             }
             ClientMessage::JoinLobby(lobby_id) => {
-                // if the client is already in a lobby
                 match self.lobby_id {
+                    // if the client is already in a lobby
                     Some(_) => {
                         // let the client know about the error that occured
                         self.send_message(&ServerMessage::Error(

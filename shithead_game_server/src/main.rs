@@ -19,14 +19,7 @@ async fn run() -> anyhow::Result<()> {
 
 #[tokio::main]
 async fn main() {
-    SimpleLogger::new()
-        // display timestamps using utc time. using this because there's a problem on my pc which
-        // doesn't allow using local time.
-        .with_utc_timestamps()
-        // only show log messages with level Info or higher (Warning, Error).
-        .with_level(log::LevelFilter::Info)
-        .init()
-        .expect("failed to initialize logger");
+    env_logger::init();
 
     if let Err(error) = run().await {
         error!("{:?}", error);
