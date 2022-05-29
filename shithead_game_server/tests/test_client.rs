@@ -58,7 +58,8 @@ impl TestClient {
             .expect("failed to send websocket message to server");
     }
 
-    /// Validates the server's handshake messages.
+    /// Validates the server's handshake messages, by making sure that it sends a `ClientId`
+    /// message followed by a `Lobbies` message.
     pub async fn validate_handshake(&mut self) {
         let client_id_msg = self.recv().await;
         assert!(matches!(client_id_msg, ServerMessage::ClientId(_)));
