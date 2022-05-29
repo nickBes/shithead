@@ -371,7 +371,7 @@ pub enum StartGameError {
 }
 
 /// The information about a lobby that is exposed to the clients.
-#[derive(Debug, Serialize, Clone, TypeDef)]
+#[derive(Debug, Serialize, Deserialize, Clone, TypeDef)]
 pub struct ExposedLobbyInfo {
     pub name: String,
 
@@ -383,7 +383,7 @@ pub struct ExposedLobbyInfo {
 }
 
 /// The information about a lobby player that is exposed to the clients.
-#[derive(Debug, Serialize, Clone, TypeDef)]
+#[derive(Debug, Serialize, Deserialize, Clone, TypeDef)]
 pub struct ExposedLobbyPlayerInfo {
     id: ClientId,
 
