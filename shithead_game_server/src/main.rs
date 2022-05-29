@@ -1,7 +1,6 @@
 use anyhow::Context;
 use game_server::GameServer;
 use log::error;
-use simple_logger::SimpleLogger;
 
 mod cards;
 mod client_handler;
