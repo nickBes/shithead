@@ -8,6 +8,10 @@ const delta = 1000
 let lobbies = ref<types.ExposedLobbyInfo[]>()
 let interval = ref<number>()
 
+function getLobbies() {
+    states.gameSocket?.send("getLobbies")
+}
+
 onMounted(() => {
     states.gameSocket?.setOnMessage(message => {
         match(message)
@@ -15,7 +19,9 @@ onMounted(() => {
             .otherwise(msg => console.warn(`Recieved a non related message on lobby query: ${JSON.stringify(msg)}`))
     })
 
-    interval.value = setInterval(() => {states.gameSocket?.send("getLobbies")}, delta)
+    // will get lobbies now and after delta time
+    getLobbies()
+    interval.value = setInterval(getLobbies, delta)
 })
 
 onUnmounted(() => {
