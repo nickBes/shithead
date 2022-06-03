@@ -196,6 +196,25 @@ impl ClientHandler {
                     }
                 }
             }
+            ClientMessage::LeaveLobby => {
+                match self.lobby_id {
+                    Some(lobby_id) => {
+                        if let Err(err) =
+                            GAME_SERVER_STATE.remove_player_from_lobby(self.client_id, lobby_id)
+                        {
+                            self.send_message(&ServerMessage::Error(err.to_string()))
+                                .await?;
+                        }
+                    }
+                    None => {
+                        // the player is not in a lobby
+                        self.send_message(&ServerMessage::Error(
+                            LeaveLobbyError::NotInALobby.to_string(),
+                        ))
+                        .await?;
+                    }
+                }
+            }
         }
         Ok(())
     }
@@ -255,7 +274,8 @@ impl ClientHandler {
         // that doesn't seem to exist, which doesn't make sense.
         if let Some(lobby_id) = self.lobby_id {
             GAME_SERVER_STATE
-                .remove_player_from_lobby(self.client_id, lobby_id);
+                .remove_player_from_lobby(self.client_id, lobby_id)
+                .context("failed to remove player from lobby")?;
         }
 
         // then remove the client from the list of connected clients.
@@ -265,10 +285,7 @@ impl ClientHandler {
 }
 
 /// Handles a new client that had just connected to the game server's tcp listener.
-pub async fn handle_client(
-    stream: TcpStream,
-    addr: SocketAddr,
-) -> anyhow::Result<()> {
+pub async fn handle_client(stream: TcpStream, addr: SocketAddr) -> anyhow::Result<()> {
     let websocket = tokio_tungstenite::accept_async(stream)
         .await
         .context("failed to accept websocket client {}")?;
@@ -294,4 +311,10 @@ pub async fn handle_client(
 pub enum CreateLobbyError {
     #[error("you are already in a lobby")]
     AlreadyInALobby,
+}
+
+#[derive(Debug, Error)]
+pub enum LeaveLobbyError {
+    #[error("not in a lobby")]
+    NotInALobby,
 }

@@ -7,7 +7,7 @@ use crate::{
     lobby::LobbyId,
 };
 
-#[derive(Debug, Serialize, Deserialize, Clone, TypeDef)]
+#[derive(Debug, Serialize, Deserialize, Clone, TypeDef, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub enum ServerMessage {
     ClientId(ClientId),
@@ -44,6 +44,7 @@ pub enum ClientMessage {
     SetUsername(String),
     GetLobbies,
     JoinLobby(LobbyId),
+    LeaveLobby,
 
     #[serde(rename_all = "camelCase")]
     CreateLobby {
@@ -54,7 +55,7 @@ pub enum ClientMessage {
     // ClickCard(ClickedCardLocation),
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, TypeDef)]
+#[derive(Debug, Serialize, Deserialize, Clone, TypeDef, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub enum ClickedCardLocation {
     Trash,

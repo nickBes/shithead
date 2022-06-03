@@ -28,6 +28,11 @@ lazy_static! {
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Clone, Copy, TypeDef)]
 #[serde(transparent)]
 pub struct ClientId(usize);
+impl ClientId {
+    pub fn from_raw(raw: usize) -> Self {
+        Self(raw)
+    }
+}
 impl std::fmt::Display for ClientId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
@@ -92,7 +97,7 @@ impl GameServerState {
             self.next_lobby_id
                 .fetch_add(1, std::sync::atomic::Ordering::Relaxed),
         );
-        let lobby = Lobby::new(lobby_id,name, owner_id);
+        let lobby = Lobby::new(lobby_id, name, owner_id);
 
         // save the broadcast_messages_sender before giving ownership of the lobby
         let broadcast_messages_sender = lobby.broadcast_messages_sender.clone();
@@ -160,12 +165,12 @@ impl GameServerState {
     }
 
     /// Removes a player from a lobby.
-    pub fn remove_player_from_lobby(&self, player_id: ClientId, lobby_id: LobbyId) {
+    pub fn remove_player_from_lobby(&self, player_id: ClientId, lobby_id: LobbyId) -> Result<(), RemovePlayerFromLobbyError>{
         let mut lobby = match self.lobbies.get_mut(&lobby_id) {
             Some(lobby) => lobby,
             None => {
-                // if the user is not really in this lobby, we don't need to do anything
-                return;
+                // there is no such a lobby
+                return Err(RemovePlayerFromLobbyError::NoSuchLobby);
             }
         };
 
@@ -177,6 +182,8 @@ impl GameServerState {
                 let _ = lobby
                     .broadcast_messages_sender
                     .send(ServerMessage::PlayerLeftLobby(player_id));
+
+                Ok(())
             }
             RemovePlayerFromLobbyResult::NewOwner(new_owner_id) => {
                 // let the other clients know that this player left the lobby, and about the new
@@ -187,13 +194,19 @@ impl GameServerState {
                 let _ = lobby
                     .broadcast_messages_sender
                     .send(ServerMessage::OwnerLeftLobby { new_owner_id });
+
+                Ok(())
             }
             RemovePlayerFromLobbyResult::LobbyNowEmpty => {
                 // the lobby is now empty, remove it
                 self.lobbies.remove(&lobby_id);
+
+                Ok(())
             }
             RemovePlayerFromLobbyResult::PlayerWasntInLobby => {
                 // no need to notify anyone because the player wasn't even in the lobby
+
+                Ok(())
             }
         }
     }
@@ -298,8 +311,8 @@ impl GameServerState {
     }
 
     /// Tells the lobby with the given id that the current turn has timed out.
-    pub fn turn_timeout(&self, lobby_id: LobbyId){
-        if let Some(mut lobby) = self.lobbies.get_mut(&lobby_id){
+    pub fn turn_timeout(&self, lobby_id: LobbyId) {
+        if let Some(mut lobby) = self.lobbies.get_mut(&lobby_id) {
             lobby.turn_timeout();
         }
     }
@@ -370,8 +383,14 @@ pub enum StartGameError {
     GameAlreadyStarted,
 }
 
+#[derive(Debug, Error, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum RemovePlayerFromLobbyError {
+    #[error("no such lobby")]
+    NoSuchLobby,
+}
+
 /// The information about a lobby that is exposed to the clients.
-#[derive(Debug, Serialize, Deserialize, Clone, TypeDef)]
+#[derive(Debug, Serialize, Deserialize, Clone, TypeDef, PartialEq, Eq)]
 pub struct ExposedLobbyInfo {
     pub name: String,
 
@@ -383,9 +402,9 @@ pub struct ExposedLobbyInfo {
 }
 
 /// The information about a lobby player that is exposed to the clients.
-#[derive(Debug, Serialize, Deserialize, Clone, TypeDef)]
+#[derive(Debug, Serialize, Deserialize, Clone, TypeDef, PartialEq, Eq)]
 pub struct ExposedLobbyPlayerInfo {
-    id: ClientId,
+    pub id: ClientId,
 
-    username: String,
+    pub username: String,
 }
