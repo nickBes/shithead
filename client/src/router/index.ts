@@ -10,6 +10,10 @@ const router = createRouter({
     {
       path: '/lobbyCreator',
       component: () => import("@/views/LobbyCreator.vue"),
+    },
+    {
+      path: '/lobby/:id',
+      component: () => import("@/views/Lobby.vue")
     }
   ]
 })
