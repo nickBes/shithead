@@ -153,7 +153,7 @@ impl Lobby {
     pub fn start_game(&mut self) {
         self.state = LobbyState::GameStarted;
 
-        for player in self.player_list.values_mut() {
+        for player in self.player_list.players() {
             player.cards_in_hand = self
                 .deck
                 .take_cards_from_top(INITIAL_CARDS_IN_HAND_AMOUNT)
@@ -223,7 +223,9 @@ impl Lobby {
     fn set_current_turn_and_update_players(&mut self, new_turn_player_id: ClientId) {
         self.current_turn = Some(Turn::new(self.id, new_turn_player_id));
 
-        // TODO: update all players about this turn.
+        // update all the players about this turn.
+        // this should never fail since the lobby never has 0 players
+        let _ = self.broadcast_messages_sender.send(ServerMessage::Turn(new_turn_player_id));
     }
 }
 

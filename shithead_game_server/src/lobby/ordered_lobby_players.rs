@@ -46,7 +46,7 @@ impl OrderedLobbyPlayers {
         self.turns_order.iter().copied()
     }
 
-    pub fn values_mut<'a>(
+    pub fn players<'a>(
         &'a mut self,
     ) -> std::collections::hash_map::ValuesMut<'a, ClientId, LobbyPlayer> {
         self.players_by_id.values_mut()

@@ -34,6 +34,8 @@ pub enum ServerMessage {
         cards_in_hand: Vec<CardId>,
         three_up_cards: Vec<CardId>,
     },
+    
+    Turn(ClientId),
 
     ClickCard(ClickedCardLocation),
 }
