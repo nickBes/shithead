@@ -106,12 +106,6 @@ impl ClientHandler {
         self.send_message(&ServerMessage::ClientId(self.client_id))
             .await?;
 
-        // send the client a list of exposed lobby information
-        self.send_message(&ServerMessage::Lobbies(
-            GAME_SERVER_STATE.exposed_lobby_list(),
-        ))
-        .await?;
-
         Ok(())
     }
 
