@@ -289,6 +289,11 @@ impl GameServerState {
             return Err(StartGameError::GameAlreadyStarted);
         }
 
+        // to start a game you need at least 2 players
+        if lobby.players_amount() < 2 {
+            return Err(StartGameError::NotEnoughPlayers)
+        }
+
         // starts the game and gives players their initial cards, so after it we must tell each
         // player his cards
         lobby.start_game();
@@ -382,6 +387,9 @@ pub enum StartGameError {
 
     #[error("the game in this lobby has already started")]
     GameAlreadyStarted,
+
+    #[error("not enough players")]
+    NotEnoughPlayers,
 }
 
 #[derive(Debug, Error, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Hash)]
