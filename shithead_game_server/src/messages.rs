@@ -35,11 +35,9 @@ pub enum ServerMessage {
         three_up_cards: Vec<CardId>,
     },
     
-    Turn(ClientId),
-    
     GiveTrash(ClientId),
 
-    ClickCard(ClickedCardLocation),
+    Turn(ClientId),
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, TypeDef)]
@@ -56,7 +54,7 @@ pub enum ClientMessage {
     },
 
     StartGame,
-    // ClickCard(ClickedCardLocation),
+    ClickCard(ClickedCardLocation),
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, TypeDef, PartialEq, Eq)]

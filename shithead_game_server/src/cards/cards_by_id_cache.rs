@@ -1,8 +1,8 @@
-use crate::cards::JOKERS_AMOUNT;
-use crate::cards::CardId;
-use crate::cards::Suit;
-use crate::cards::Rank;
 use crate::cards::Card;
+use crate::cards::CardId;
+use crate::cards::Rank;
+use crate::cards::Suit;
+use crate::cards::JOKERS_AMOUNT;
 use strum::EnumCount;
 use strum::IntoEnumIterator;
 

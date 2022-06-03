@@ -84,6 +84,11 @@ impl OrderedLobbyPlayers {
             player.cards_in_hand.extend(cards);
         }
     }
+
+    /// Checks if the player list contains a player with the given id
+    pub fn contains_player_with_id(&self, player_id: ClientId) -> bool {
+        self.players_by_id.contains_key(&player_id)
+    }
 }
 
 impl Index<ClientId> for OrderedLobbyPlayers {

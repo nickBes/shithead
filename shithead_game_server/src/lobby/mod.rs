@@ -1,8 +1,12 @@
-mod turn;
 mod lobby_player;
 mod ordered_lobby_players;
+mod turn;
 
-use crate::{game_server::GAME_SERVER_STATE, cards::CardsDeck};
+use crate::{
+    cards::CardsDeck,
+    game_server::{GameServerError, GAME_SERVER_STATE},
+    messages::ClickedCardLocation,
+};
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
@@ -15,7 +19,7 @@ use crate::{
     messages::ServerMessage,
 };
 
-use self::{turn::Turn, ordered_lobby_players::OrderedLobbyPlayers, lobby_player::LobbyPlayer};
+use self::{lobby_player::LobbyPlayer, ordered_lobby_players::OrderedLobbyPlayers, turn::Turn};
 
 pub const MAX_PLAYERS_IN_LOBBY: usize = 6;
 
@@ -217,8 +221,9 @@ impl Lobby {
 
         // let all the players in the lobby know that the player who timed out got all cards from
         // the trash.
-        let _ = self.broadcast_messages_sender.send(ServerMessage::GiveTrash(current_turn.player_id()));
-
+        let _ = self
+            .broadcast_messages_sender
+            .send(ServerMessage::GiveTrash(current_turn.player_id()));
 
         self.set_current_turn_and_update_players(new_turn_player_id);
     }
@@ -229,7 +234,51 @@ impl Lobby {
         self.current_turn = Some(Turn::new(self.id, new_turn_player_id));
 
         // update all the players about this turn.
-        let _ = self.broadcast_messages_sender.send(ServerMessage::Turn(new_turn_player_id));
+        let _ = self
+            .broadcast_messages_sender
+            .send(ServerMessage::Turn(new_turn_player_id));
+    }
+
+    /// Handles a card click from one of the clients.
+    pub async fn click_card(
+        &mut self,
+        client_id: ClientId,
+        clicked_card_location: ClickedCardLocation,
+    ) -> Result<(), GameServerError> {
+        let current_turn_player_id = self
+            .current_turn
+            .as_ref()
+            .ok_or(GameServerError::GameHasntStartedYet)?.player_id();
+
+        if current_turn_player_id != client_id {
+            return Err(GameServerError::NotYourTurn);
+        }
+
+        if !self.player_list.contains_player_with_id(client_id){
+            return Err(GameServerError::NotInALobby)
+        }
+
+        match clicked_card_location {
+            ClickedCardLocation::Trash => {
+                // the player has finished his turn
+                self.turn_finished().await;
+
+                // give the player all the cards in the trash
+                self.player_list
+                    .give_cards_to_player(current_turn_player_id, self.trash.take_all());
+
+                // let all the players in the lobby know that the player who timed out got all cards from
+                // the trash.
+                let _ = self
+                    .broadcast_messages_sender
+                    .send(ServerMessage::GiveTrash(current_turn_player_id));
+
+                Ok(())
+            }
+            ClickedCardLocation::MyCards { card_index } => {
+                todo!()
+            },
+        }
     }
 }
 
