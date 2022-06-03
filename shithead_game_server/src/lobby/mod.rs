@@ -215,6 +215,11 @@ impl Lobby {
         self.player_list
             .give_cards_to_player(current_turn.player_id(), self.trash.take_all());
 
+        // let all the players in the lobby know that the player who timed out got all cards from
+        // the trash.
+        let _ = self.broadcast_messages_sender.send(ServerMessage::GiveTrash(current_turn.player_id()));
+
+
         self.set_current_turn_and_update_players(new_turn_player_id);
     }
 
@@ -224,7 +229,6 @@ impl Lobby {
         self.current_turn = Some(Turn::new(self.id, new_turn_player_id));
 
         // update all the players about this turn.
-        // this should never fail since the lobby never has 0 players
         let _ = self.broadcast_messages_sender.send(ServerMessage::Turn(new_turn_player_id));
     }
 }

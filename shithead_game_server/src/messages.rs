@@ -36,6 +36,8 @@ pub enum ServerMessage {
     },
     
     Turn(ClientId),
+    
+    GiveTrash(ClientId),
 
     ClickCard(ClickedCardLocation),
 }
