@@ -164,7 +164,8 @@ impl GameServerState {
         Ok(lobby.broadcast_messages_sender.clone())
     }
 
-    /// Removes a player from a lobby.
+    /// Removes a player from a lobby, and notifies the players in the lobby about it.
+    /// If a lobby with the provided lobby id doesn't exist, returns a corresponding error.
     pub fn remove_player_from_lobby(&self, player_id: ClientId, lobby_id: LobbyId) -> Result<(), RemovePlayerFromLobbyError>{
         let mut lobby = match self.lobbies.get_mut(&lobby_id) {
             Some(lobby) => lobby,
