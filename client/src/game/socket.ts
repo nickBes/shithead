@@ -3,14 +3,6 @@ import type types from '@/bindings/bindings'
 export type ServerCallback = (socket:Socket) => void
 export type OnMessageCallback = (message:types.ServerMessage, socket:Socket) => void
 
-// an object for setting up timed communication
-// with the server: for every timeInterval that is passed
-// the callback method will be called
-export interface UpdateObject {
-    callback: ServerCallback | undefined
-    timeInterval: number
-}
-
 export default class Socket {
     connection : WebSocket;
     onOpen? : ServerCallback

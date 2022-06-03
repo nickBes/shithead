@@ -1,23 +1,20 @@
 <script setup lang="ts">
 import { states } from "@/game/states"
 import { match, P } from "ts-pattern";
-import { onMounted } from "vue";
+import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 
 const router = useRouter()
+let lobbyName = ref<string>()
 
 function createLobby(event : SubmitEvent) {
     event?.preventDefault()
-    let formData = new FormData(event.target as HTMLFormElement)
-    if (formData.has('lobbyName')) {
-        let lobbyName = formData.get('lobbyName')
-        if (typeof lobbyName == "string") {
-            states.gameSocket?.send({
-                createLobby: {
-                    lobbyName
-                }
-            })
-        }
+    if (lobbyName.value != undefined) {
+        states.gameSocket?.send({
+            createLobby: {
+                lobbyName: lobbyName.value
+            }
+        })
     }
 }
 
@@ -35,7 +32,7 @@ onMounted(() => {
 <template>
     <p>This is lobby creator</p>
     <form @submit="(event) => createLobby(event as SubmitEvent)">
-        <input autocomplete="off" name="lobbyName" type="text"/>
+        <input v-model.lazy.trim="lobbyName" autocomplete="off" name="lobbyName" type="text"/>
         <button type="submit">Create New Lobby</button>
     </form>
 </template>

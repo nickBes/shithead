@@ -4,9 +4,9 @@ import { states } from '@/game/states'
 import { match, P } from 'ts-pattern'
 import type types from '@/bindings/bindings'
 
-const delta = 1000
+const updateTimeout = 1000
 let lobbies = ref<types.ExposedLobbyInfo[]>()
-let interval = ref<number>()
+let interval : number
 
 function getLobbies() {
     states.gameSocket?.send("getLobbies")
@@ -19,13 +19,13 @@ onMounted(() => {
             .otherwise(msg => console.warn(`Recieved a non related message on lobby query: ${JSON.stringify(msg)}`))
     })
 
-    // will get lobbies now and after delta time
+    // will get lobbies now and after updateTimeout time
     getLobbies()
-    interval.value = setInterval(getLobbies, delta)
+    interval = setInterval(getLobbies, updateTimeout)
 })
 
 onUnmounted(() => {
-    clearInterval(interval.value)
+    clearInterval(interval)
 })
 
 </script>

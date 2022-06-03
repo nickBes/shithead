@@ -5,12 +5,10 @@ import { states } from './game/states'
 import Socket from './game/socket'
 
 onMounted(() => {
-    // connect when mounted and only when socket wasn't created
-    if (!states.gameSocket) {
-        states.gameSocket = new Socket('ws://localhost:7522', () => {
-            console.log('Connected to server')
-        })
-    }
+    // connect when mounted
+    states.gameSocket = new Socket('ws://localhost:7522', () => {
+        console.log('Connected to server')
+    })
 })
 
 </script>
