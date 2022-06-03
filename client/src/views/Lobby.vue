@@ -25,13 +25,16 @@ onBeforeRouteLeave(() => {
 
 onMounted(() => {
     if (states.lobby != lobbyId) { // then we either joined or switched
-        states.gameSocket?.setOnMessage((message) => {
+        states.gameSocket?.setOnMessage((message, sk) => {
             match(message)
-                .with(P.not({joinLobby: P.any}), (msg) => {
+                .with({joinLobby: P.any}, () => {
+                    states.lobby = lobbyId
+                    sk.setOnMessage(() => {})
+                })
+                .otherwise((msg) => {
                     console.warn(`Couldn't join the lobby for the following reason: ${JSON.stringify(msg)}`)
                     router.push("/")
                 })
-                .run()
         })
         states.gameSocket?.send({joinLobby: lobbyId})
     }
