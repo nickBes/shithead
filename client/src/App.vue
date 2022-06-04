@@ -10,8 +10,9 @@ onMounted(() => {
     states.gameSocket = new Socket('ws://localhost:7522', (sk) => {
         sk.setOnMessage((message) => {
             match(message)
-                .with({clientId: P.any}, msg => {
-                    states.id = msg.clientId
+                .with({handshake: P.any}, msg => {
+                    states.id = msg.handshake.id
+                    states.name = msg.handshake.username
                 })
                 .run()
         })
