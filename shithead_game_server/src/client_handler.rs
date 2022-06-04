@@ -193,11 +193,17 @@ impl ClientHandler {
             ClientMessage::LeaveLobby => {
                 match self.lobby_id {
                     Some(lobby_id) => {
-                        if let Err(err) =
-                            GAME_SERVER_STATE.remove_player_from_lobby(self.client_id, lobby_id)
-                        {
-                            self.send_message(&ServerMessage::Error(err.to_string()))
-                                .await?;
+                        match GAME_SERVER_STATE.remove_player_from_lobby(self.client_id, lobby_id) {
+                            Ok(()) => {
+                                // if we have successfully removed the player from the lobby, set
+                                // the player's lobby id to `None` to indicate that he is now not
+                                // in any lobby.
+                                self.lobby_id = None;
+                            }
+                            Err(err) => {
+                                self.send_message(&ServerMessage::Error(err.to_string()))
+                                    .await?
+                            }
                         }
                     }
                     None => {
