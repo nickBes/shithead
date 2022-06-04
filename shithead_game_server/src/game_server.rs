@@ -199,7 +199,11 @@ impl GameServerState {
                 Ok(())
             }
             RemovePlayerFromLobbyResult::LobbyNowEmpty => {
-                // the lobby is now empty, remove it
+                // the lobby is now empty, remove it.
+                //
+                // `lobby` is holding a reference to the map, so we must drop it before trying 
+                // to mutate the map to prevent a deadlock.
+                drop(lobby);
                 self.lobbies.remove(&lobby_id);
 
                 Ok(())
