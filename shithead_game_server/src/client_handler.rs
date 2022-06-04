@@ -1,4 +1,4 @@
-use crate::game_server::GAME_SERVER_STATE;
+use crate::{game_server::GAME_SERVER_STATE, messages::HandshakeClientInfo};
 use std::net::SocketAddr;
 
 use anyhow::Context;
@@ -32,8 +32,8 @@ pub struct ClientHandler {
 impl ClientHandler {
     /// Handles a client by receiving messages from him and processing them, and by sending him
     /// broadcast messages.
-    pub async fn handle_and_cleanup(&mut self) -> anyhow::Result<()> {
-        let result = self.try_handle().await;
+    pub async fn handle_and_cleanup(&mut self, initial_username: String) -> anyhow::Result<()> {
+        let result = self.try_handle(initial_username).await;
         self.cleanup()
             .await
             .context("failed to cleanup after handling client")?;
@@ -43,8 +43,8 @@ impl ClientHandler {
     /// Handles the client and returns any errors that occured. Should not be called directly
     /// because it doesn't call `ClientHandler::cleanup`. `ClientHandler::handle_and_cleanup`
     /// should be used instead.
-    async fn try_handle(&mut self) -> anyhow::Result<()> {
-        self.perform_handshake()
+    async fn try_handle(&mut self, initial_username: String) -> anyhow::Result<()> {
+        self.perform_handshake(initial_username)
             .await
             .context("failed to perform handshake with client")?;
 
@@ -101,10 +101,13 @@ impl ClientHandler {
 
     /// Performs a handshake with this client, and synchronizes data with him.
     /// It sends the client its id, and a list of lobbies.
-    async fn perform_handshake(&mut self) -> anyhow::Result<()> {
+    async fn perform_handshake(&mut self, initial_username: String) -> anyhow::Result<()> {
         // send the client its id
-        self.send_message(&ServerMessage::ClientId(self.client_id))
-            .await?;
+        self.send_message(&ServerMessage::Handshake(HandshakeClientInfo {
+            id: self.client_id,
+            username: initial_username,
+        }))
+        .await?;
 
         Ok(())
     }
@@ -194,12 +197,7 @@ impl ClientHandler {
                 match self.lobby_id {
                     Some(lobby_id) => {
                         match GAME_SERVER_STATE.remove_player_from_lobby(self.client_id, lobby_id) {
-                            Ok(()) => {
-                                // if we have successfully removed the player from the lobby, set
-                                // the player's lobby id to `None` to indicate that he is now not
-                                // in any lobby.
-                                self.lobby_id = None;
-                            }
+                            Ok(()) => self.on_leave_lobby().await,
                             Err(err) => {
                                 self.send_message(&ServerMessage::Error(err.to_string()))
                                     .await?
@@ -236,6 +234,7 @@ impl ClientHandler {
         Ok(())
     }
 
+    /// Updates the handler when the client leaves his lobby.
     async fn on_leave_lobby(&mut self) {
         self.lobby_id = None;
         self.broadcast_messages_sender = GAME_SERVER_STATE.broadcast_messages_sender.clone();
@@ -292,8 +291,10 @@ pub async fn handle_client(stream: TcpStream, addr: SocketAddr) -> anyhow::Resul
 
     let id = GAME_SERVER_STATE.next_client_id();
 
+    let initial_username = format!("user{}", id);
+
     // add the client to the list of connected clients.
-    let specific_messages_receiver = GAME_SERVER_STATE.add_client(id);
+    let specific_messages_receiver = GAME_SERVER_STATE.add_client(id, initial_username.clone());
 
     let mut game_client = ClientHandler {
         websocket,
@@ -304,7 +305,7 @@ pub async fn handle_client(stream: TcpStream, addr: SocketAddr) -> anyhow::Resul
         lobby_id: None,
     };
 
-    game_client.handle_and_cleanup().await
+    game_client.handle_and_cleanup(initial_username).await
 }
 
 #[derive(Debug, Error)]

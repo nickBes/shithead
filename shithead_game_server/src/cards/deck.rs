@@ -1,6 +1,6 @@
-use rand::prelude::SliceRandom;
 use crate::cards::cards_by_id_cache::ALL_CARD_IDS;
 use crate::cards::CardId;
+use rand::prelude::SliceRandom;
 
 /// A deck of cards
 #[derive(Debug)]
@@ -42,4 +42,3 @@ impl CardsDeck {
         self.cards.drain(..)
     }
 }
-
