@@ -19,8 +19,7 @@ if (rawLobbyId && typeof rawLobbyId == "string") {
 }
 
 onBeforeRouteLeave(() => {
-    console.log('leaving lobby....')
-    // will be added later
+    states.gameSocket?.send("leaveLobby")
 })
 
 onMounted(() => {
