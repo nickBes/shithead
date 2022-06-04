@@ -300,7 +300,9 @@ impl GameServerState {
             let client_info = self.get_client_in_lobby(player_id);
 
             // the information about this client as a lobby player
-            let lobby_player_info = lobby.get_player(player_id);
+            let lobby_player_info = lobby
+                .get_player(player_id)
+                .ok_or(GameServerError::NotInALobby)?;
 
             client_info
                 .specific_messages_sender
@@ -398,6 +400,9 @@ pub enum GameServerError {
 
     #[error("the game in this lobby hasn't started yet")]
     GameHasntStartedYet,
+
+    #[error("you can't take the trash because some of your cards can be played")]
+    CantTakeTrashBecauseSomeCardsCanBePlayed,
 }
 
 /// The information about a lobby that is exposed to the clients.

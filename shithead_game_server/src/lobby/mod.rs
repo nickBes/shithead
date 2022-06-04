@@ -3,7 +3,7 @@ mod ordered_lobby_players;
 mod turn;
 
 use crate::{
-    cards::CardsDeck,
+    cards::{CardsDeck, Rank, CARDS_BY_ID},
     game_server::{GameServerError, GAME_SERVER_STATE},
     messages::ClickedCardLocation,
 };
@@ -181,8 +181,8 @@ impl Lobby {
     }
 
     /// Returns the lobby player with the given id.
-    pub fn get_player(&self, player_id: ClientId) -> &LobbyPlayer {
-        &self.player_list[player_id]
+    pub fn get_player(&self, player_id: ClientId) -> Option<&LobbyPlayer> {
+        self.player_list.get_player(player_id)
     }
 
     /// Finds the id of the player who will play in the next turn.
@@ -239,6 +239,27 @@ impl Lobby {
             .send(ServerMessage::Turn(new_turn_player_id));
     }
 
+    /// The value of the trash's top card.
+    /// This is used to check if a card can be placed on the trash.
+    /// If the trash's top card is a three, it returns value of the card below it.
+    /// Otherwise just returns the value of the trash's top card.
+    /// If the trash is empty, returns a rank of 2, to indicate that any card can be placed in the
+    /// trash.
+    fn trash_top_card_rank(&self) -> Rank {
+        let trash_cards_bottom_to_top = self.trash.cards_bottom_to_top();
+        let cards_top_to_bottom = trash_cards_bottom_to_top.iter().rev();
+        for &card_id in cards_top_to_bottom {
+            let card = CARDS_BY_ID.get_card(card_id);
+            if card.rank != Rank::Three {
+                return card.rank;
+            }
+        }
+
+        // if the deck is empty or only has 3's in it, the value of it is a 2, which
+        // indicates that any card can be placed in it.
+        Rank::Two
+    }
+
     /// Handles a card click from one of the clients.
     pub async fn click_card(
         &mut self,
@@ -248,18 +269,26 @@ impl Lobby {
         let current_turn_player_id = self
             .current_turn
             .as_ref()
-            .ok_or(GameServerError::GameHasntStartedYet)?.player_id();
+            .ok_or(GameServerError::GameHasntStartedYet)?
+            .player_id();
 
         if current_turn_player_id != client_id {
             return Err(GameServerError::NotYourTurn);
         }
 
-        if !self.player_list.contains_player_with_id(client_id){
-            return Err(GameServerError::NotInALobby)
-        }
+        let player = self
+            .player_list
+            .get_player(client_id)
+            .ok_or(GameServerError::NotInALobby)?;
 
         match clicked_card_location {
             ClickedCardLocation::Trash => {
+                // if the player can place any of his cards in the trash, then he is not allowed to
+                // take the trash
+                if player.what_cards_can_be_placed_on(self.trash_top_card_rank()).next().is_some(){
+                    return Err(GameServerError::CantTakeTrashBecauseSomeCardsCanBePlayed)
+                }
+
                 // the player has finished his turn
                 self.turn_finished().await;
 
@@ -277,7 +306,7 @@ impl Lobby {
             }
             ClickedCardLocation::MyCards { card_index } => {
                 todo!()
-            },
+            }
         }
     }
 }

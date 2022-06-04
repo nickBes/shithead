@@ -5,6 +5,9 @@ use rand::prelude::SliceRandom;
 /// A deck of cards
 #[derive(Debug)]
 pub struct CardsDeck {
+    /// The cards in the deck, ordered from bottom to top, such that the card at index `0` is at the
+    /// bottom of the deck, and the card at index `cards.len() - 1` is the card at the top of the
+    /// deck.
     cards: Vec<CardId>,
 }
 impl CardsDeck {
@@ -35,6 +38,18 @@ impl CardsDeck {
             return None;
         }
         Some(self.cards.drain(self.cards.len() - amount..))
+    }
+
+    /// Returns the card at the top of this deck
+    pub fn top_card(&self)->Option<CardId>{
+        self.cards.last().copied()
+    }
+
+    /// The cards in the deck, ordered from bottom to top, such that the card at index `0` is at the
+    /// bottom of the deck, and the card at index `length - 1` is the card at the top of the
+    /// deck.
+    pub fn cards_bottom_to_top(&self)->&[CardId]{
+        &self.cards
     }
 
     /// Takes all the cards from the deck.
