@@ -31,10 +31,10 @@ impl TestClient {
     }
 
     /// Creates a new client by connecting to the server and validates the server's handshake.
-    pub async fn connect_and_perform_handshake() -> (Self, HandshakeInfo) {
+    pub async fn connect_and_perform_handshake() -> (Self, ClientId) {
         let mut client = TestClient::connect_to_server().await;
-        let handshake_info = client.perform_handshake().await;
-        (client, handshake_info)
+        let client_id = client.perform_handshake().await;
+        (client, client_id)
     }
 
     /// Receives a message from the server
@@ -74,9 +74,9 @@ impl TestClient {
             .expect("failed to send websocket message to server");
     }
 
-    /// Performs a handshake with the game server, and returns the handshake information sent by
+    /// Performs a handshake with the game server, and returns the client's [`ClientId`] sent by
     /// the server.
-    pub async fn perform_handshake(&mut self) -> HandshakeInfo {
+    pub async fn perform_handshake(&mut self) -> ClientId {
         let client_id_msg = self.recv().await;
         let client_id = match client_id_msg {
             ServerMessage::ClientId(client_id) => client_id,
@@ -86,21 +86,6 @@ impl TestClient {
             ),
         };
 
-        let lobbies_msg = self.recv().await;
-        let lobbies = match lobbies_msg {
-            ServerMessage::Lobbies(lobbies) => lobbies,
-            _ => panic!(
-                "expected a Lobbies message during the handshake, instead got: {:?}",
-                lobbies_msg
-            ),
-        };
-
-        HandshakeInfo { client_id, lobbies }
+        client_id
     }
-}
-
-/// Information sent by the server during a handshake
-pub struct HandshakeInfo {
-    pub client_id: ClientId,
-    pub lobbies: Vec<ExposedLobbyInfo>,
 }
