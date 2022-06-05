@@ -33,6 +33,7 @@ onMounted(() => {
                     sk.messageHandlers.delete("addToLobby")
                 })
                 .otherwise(() => { // couldn't join, go to home
+                    states.gameSocket?.messageHandlers.delete("addToLobby")
                     router.push("/")
                 })
         })
