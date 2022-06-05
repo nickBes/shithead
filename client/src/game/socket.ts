@@ -5,7 +5,7 @@ export type OnMessageCallback = (message:types.ServerMessage, socket:Socket) => 
 
 export default class Socket {
     connection : WebSocket;
-    onOpen? : ServerCallback
+    onOpen : ServerCallback
     reconnectionTimeout = 5000
     messageHandlers = new Map<string, OnMessageCallback>()
 
@@ -29,7 +29,7 @@ export default class Socket {
 
     setSocketHandlers() {
         this.connection.onopen = () => {
-            this.onOpen?.(this)
+            this.onOpen(this)
             console.info("Successfuly connected.")
         }
         this.connection.onclose = () => this.reconnect()
