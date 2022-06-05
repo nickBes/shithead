@@ -31,10 +31,10 @@ impl TestClient {
     }
 
     /// Creates a new client by connecting to the server and validates the server's handshake.
-    pub async fn connect_and_perform_handshake() -> (Self, ClientId) {
+    pub async fn connect_and_perform_handshake() -> (Self, HandshakeClientInfo) {
         let mut client = TestClient::connect_to_server().await;
-        let client_id = client.perform_handshake().await;
-        (client, client_id)
+        let client_info = client.perform_handshake().await;
+        (client, client_info)
     }
 
     /// Receives a message from the server
@@ -74,12 +74,12 @@ impl TestClient {
             .expect("failed to send websocket message to server");
     }
 
-    /// Performs a handshake with the game server, and returns the client's [`ClientId`] sent by
+    /// Performs a handshake with the game server, and returns the client's [`HandshakeClientInfo`] sent by
     /// the server.
-    pub async fn perform_handshake(&mut self) -> ClientId {
+    pub async fn perform_handshake(&mut self) -> HandshakeClientInfo {
         let client_id_msg = self.recv().await;
         let client_id = match client_id_msg {
-            ServerMessage::ClientId(client_id) => client_id,
+            ServerMessage::Handshake(client_info) => client_info,
             _ => panic!(
                 "expected a ClientId message during the handshake, instead got: {:?}",
                 client_id_msg

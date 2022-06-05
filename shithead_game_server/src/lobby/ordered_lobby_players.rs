@@ -84,12 +84,20 @@ impl OrderedLobbyPlayers {
             player.cards_in_hand.extend(cards);
         }
     }
-}
 
-impl Index<ClientId> for OrderedLobbyPlayers {
-    type Output = LobbyPlayer;
+    /// Checks if the player list contains a player with the given id
+    pub fn contains_player_with_id(&self, player_id: ClientId) -> bool {
+        self.players_by_id.contains_key(&player_id)
+    }
 
-    fn index(&self, index: ClientId) -> &Self::Output {
-        &self.players_by_id[&index]
+    /// Returns a reference to the player with the given id, if it exists.
+    pub fn get_player(&self, player_id: ClientId) -> Option<&LobbyPlayer>{
+        self.players_by_id.get(&player_id)
+    }
+
+    /// Returns a mutable reference to the player with the given id, if it exists.
+    pub fn get_player_mut(&mut self, player_id: ClientId) -> Option<&mut LobbyPlayer>{
+        self.players_by_id.get_mut(&player_id)
     }
 }
+

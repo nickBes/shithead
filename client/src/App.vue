@@ -10,8 +10,9 @@ onMounted(() => {
     states.gameSocket = new Socket('ws://localhost:7522', (socket) => {
         // will recieve the user's id and set it in the global state
         socket.messageHandlers.set("getClientId", (message, sk) => {
-            if (isMatching({clientId: P.any}, message)) {
-                states.id = message.clientId
+            if (isMatching({handshake: P.any}, message)) {
+                states.id = message.handshake.id
+                states.name = message.handshake.username
                 sk.messageHandlers.delete("getClientId")
             }
         })

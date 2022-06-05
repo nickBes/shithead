@@ -10,7 +10,7 @@ use crate::{
 #[derive(Debug, Serialize, Deserialize, Clone, TypeDef, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub enum ServerMessage {
-    ClientId(ClientId),
+    Handshake(HandshakeClientInfo),
     Lobbies(Vec<ExposedLobbyInfo>),
     JoinLobby(LobbyId),
     Error(String),
@@ -34,12 +34,9 @@ pub enum ServerMessage {
         cards_in_hand: Vec<CardId>,
         three_up_cards: Vec<CardId>,
     },
-    
-    Turn(ClientId),
-    
     GiveTrash(ClientId),
 
-    ClickCard(ClickedCardLocation),
+    Turn(ClientId),
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, TypeDef)]
@@ -56,7 +53,14 @@ pub enum ClientMessage {
     },
 
     StartGame,
-    // ClickCard(ClickedCardLocation),
+    ClickCard(ClickedCardLocation),
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, TypeDef, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct HandshakeClientInfo {
+    pub id: ClientId,
+    pub username: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, TypeDef, PartialEq, Eq)]
