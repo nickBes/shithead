@@ -15,7 +15,7 @@ use typescript_type_def::TypeDef;
 use crate::{
     client_handler::handle_client,
     lobby::{Lobby, LobbyId, LobbyState, RemovePlayerFromLobbyResult, MAX_PLAYERS_IN_LOBBY},
-    messages::ServerMessage,
+    messages::{ClickedCardLocation, ServerMessage},
 };
 
 pub const SERVER_BIND_ADDR: &str = "0.0.0.0:7522";
@@ -78,6 +78,17 @@ impl GameServerState {
         }
     }
 
+    /// Returns a mutable reference to the lobby with the given id.
+    /// If such a lobby does not exist, returns a [`GameServerError::NoSuchLobby`] error.
+    fn get_lobby_mut(
+        &self,
+        lobby_id: LobbyId,
+    ) -> Result<dashmap::mapref::one::RefMut<LobbyId, Lobby>, GameServerError> {
+        self.lobbies
+            .get_mut(&lobby_id)
+            .ok_or(GameServerError::NoSuchLobby)
+    }
+
     /// Returns the id of the next player to connect to the game server.
     pub fn next_client_id(&self) -> ClientId {
         ClientId(
@@ -131,16 +142,13 @@ impl GameServerState {
         &self,
         player_id: ClientId,
         lobby_id: LobbyId,
-    ) -> Result<broadcast::Sender<ServerMessage>, JoinLobbyError> {
-        let mut lobby = self
-            .lobbies
-            .get_mut(&lobby_id)
-            .ok_or(JoinLobbyError::NoSuchLobby)?;
+    ) -> Result<broadcast::Sender<ServerMessage>, GameServerError> {
+        let mut lobby = self.get_lobby_mut(lobby_id)?;
         if lobby.players_amount() >= MAX_PLAYERS_IN_LOBBY {
-            return Err(JoinLobbyError::LobbyFull);
+            return Err(GameServerError::LobbyFull);
         }
         if lobby.state() != LobbyState::Waiting {
-            return Err(JoinLobbyError::GameAlreadyStarted);
+            return Err(GameServerError::GameAlreadyStarted);
         }
 
         // get the username of the player.
@@ -170,14 +178,9 @@ impl GameServerState {
         &self,
         player_id: ClientId,
         lobby_id: LobbyId,
-    ) -> Result<(), RemovePlayerFromLobbyError> {
-        let mut lobby = match self.lobbies.get_mut(&lobby_id) {
-            Some(lobby) => lobby,
-            None => {
-                // there is no such a lobby
-                return Err(RemovePlayerFromLobbyError::NoSuchLobby);
-            }
-        };
+    ) -> Result<(), GameServerError> {
+        let mut lobby = self.get_lobby_mut(lobby_id)?;
+
 
         match lobby.remove_player(player_id) {
             RemovePlayerFromLobbyResult::Ok => {
@@ -285,20 +288,17 @@ impl GameServerState {
         &self,
         requesting_client_id: ClientId,
         lobby_id: LobbyId,
-    ) -> Result<(), StartGameError> {
-        let mut lobby = self
-            .lobbies
-            .get_mut(&lobby_id)
-            .ok_or(StartGameError::NoSuchLobby)?;
+    ) -> Result<(), GameServerError> {
+        let mut lobby = self.get_lobby_mut(lobby_id)?;
 
         // can only start the game if you are the owner
         if lobby.owner_id() != requesting_client_id {
-            return Err(StartGameError::NotOwner);
+            return Err(GameServerError::NotOwner);
         }
 
         // can only start the game if it's in the waiting state
         if lobby.state() != LobbyState::Waiting {
-            return Err(StartGameError::GameAlreadyStarted);
+            return Err(GameServerError::GameAlreadyStarted);
         }
 
         // to start a game you need at least 2 players
@@ -314,7 +314,9 @@ impl GameServerState {
             let client_info = self.get_client_in_lobby(player_id);
 
             // the information about this client as a lobby player
-            let lobby_player_info = lobby.get_player(player_id);
+            let lobby_player_info = lobby
+                .get_player(player_id)
+                .ok_or(GameServerError::NotInALobby)?;
 
             client_info
                 .specific_messages_sender
@@ -326,6 +328,16 @@ impl GameServerState {
         }
 
         Ok(())
+    }
+
+    pub async fn click_card(
+        &self,
+        client_id: ClientId,
+        lobby_id: LobbyId,
+        clicked_card_location: ClickedCardLocation,
+    ) -> Result<(), GameServerError> {
+        let mut lobby = self.get_lobby_mut(lobby_id)?;
+        lobby.click_card(client_id, clicked_card_location).await
     }
 
     /// Tells the lobby with the given id that the current turn has timed out.
@@ -375,7 +387,7 @@ impl GameServer {
 }
 
 #[derive(Debug, Error, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum JoinLobbyError {
+pub enum GameServerError {
     #[error("no such lobby")]
     NoSuchLobby,
 
@@ -387,27 +399,24 @@ pub enum JoinLobbyError {
 
     #[error("you are already in a lobby")]
     AlreadyInALobby,
-}
 
-#[derive(Debug, Error, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum StartGameError {
-    #[error("no such lobby")]
-    NoSuchLobby,
+    #[error("you are not in a lobby")]
+    NotInALobby,
 
     #[error("you are not the owner of this lobby")]
     NotOwner,
 
-    #[error("the game in this lobby has already started")]
-    GameAlreadyStarted,
-
     #[error("not enough players")]
     NotEnoughPlayers,
-}
 
-#[derive(Debug, Error, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum RemovePlayerFromLobbyError {
-    #[error("no such lobby")]
-    NoSuchLobby,
+    #[error("it's not your turn")]
+    NotYourTurn,
+
+    #[error("the game in this lobby hasn't started yet")]
+    GameHasntStartedYet,
+
+    #[error("you can't take the trash because some of your cards can be played")]
+    CantTakeTrashBecauseSomeCardsCanBePlayed,
 }
 
 /// The information about a lobby that is exposed to the clients.

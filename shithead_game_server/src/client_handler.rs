@@ -11,7 +11,7 @@ use tokio::{
 use tokio_tungstenite::{tungstenite::Message, WebSocketStream};
 
 use crate::{
-    game_server::{ClientId, JoinLobbyError, StartGameError},
+    game_server::{ClientId, GameServerError},
     lobby::LobbyId,
     messages::{ClientMessage, ServerMessage},
 };
@@ -124,7 +124,7 @@ impl ClientHandler {
                     Some(_) => {
                         // let the client know about the error that occured
                         self.send_message(&ServerMessage::Error(
-                            JoinLobbyError::AlreadyInALobby.to_string(),
+                            GameServerError::AlreadyInALobby.to_string(),
                         ))
                         .await?;
                     }
@@ -148,7 +148,7 @@ impl ClientHandler {
                     Some(_) => {
                         // if the client is already in a lobby, he can't create a new one
                         self.send_message(&ServerMessage::Error(
-                            CreateLobbyError::AlreadyInALobby.to_string(),
+                            GameServerError::AlreadyInALobby.to_string(),
                         ))
                         .await?
                     }
@@ -187,7 +187,7 @@ impl ClientHandler {
                         // if the client is not in a lobby, he is definitely not the owner, so let
                         // him know
                         self.send_message(&ServerMessage::Error(
-                            StartGameError::NotOwner.to_string(),
+                            GameServerError::NotOwner.to_string(),
                         ))
                         .await?;
                     }
@@ -207,7 +207,28 @@ impl ClientHandler {
                     None => {
                         // the player is not in a lobby
                         self.send_message(&ServerMessage::Error(
-                            LeaveLobbyError::NotInALobby.to_string(),
+                            GameServerError::NotInALobby.to_string(),
+                        ))
+                        .await?;
+                    }
+                }
+            }
+            ClientMessage::ClickCard(clicked_card_location) => {
+                match self.lobby_id {
+                    Some(lobby_id) => {
+                        // if the client is in a lobby, try to click the desired card
+                        if let Err(err) = GAME_SERVER_STATE
+                            .click_card(self.client_id, lobby_id, clicked_card_location)
+                            .await
+                        {
+                            self.send_message(&ServerMessage::Error(err.to_string()))
+                                .await?;
+                        }
+                    }
+                    None => {
+                        // the player is not in a lobby
+                        self.send_message(&ServerMessage::Error(
+                            GameServerError::NotInALobby.to_string(),
                         ))
                         .await?;
                     }
@@ -306,16 +327,4 @@ pub async fn handle_client(stream: TcpStream, addr: SocketAddr) -> anyhow::Resul
     };
 
     game_client.handle_and_cleanup(initial_username).await
-}
-
-#[derive(Debug, Error)]
-pub enum CreateLobbyError {
-    #[error("you are already in a lobby")]
-    AlreadyInALobby,
-}
-
-#[derive(Debug, Error)]
-pub enum LeaveLobbyError {
-    #[error("not in a lobby")]
-    NotInALobby,
 }
