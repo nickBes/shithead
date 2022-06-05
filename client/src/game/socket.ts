@@ -5,41 +5,33 @@ export type OnMessageCallback = (message:types.ServerMessage, socket:Socket) => 
 
 export default class Socket {
     connection : WebSocket;
-    onOpen? : ServerCallback
+    onOpen : ServerCallback
     reconnectionTimeout = 5000
-    onMessage? : OnMessageCallback | null
+    messageHandlers = new Map<string, OnMessageCallback>()
 
     // has to be run only in useEffect because we need the window to exist
     // to create a websocket and run updates
     constructor(serverUrl : string, onOpen : ServerCallback) {
         this.connection = new WebSocket(serverUrl);
         this.onOpen = onOpen
-
         this.setSocketHandlers()
-    }
 
-    setOnMessageHandler() {
         this.connection.onmessage = (event : MessageEvent) => {
             // bad implementation by ts, will read that: 
             // https://dev.to/codeprototype/safely-parsing-json-to-a-typescript-interface-3lkj 
             // some day
-            this.onMessage?.(JSON.parse(event.data) as types.ServerMessage, this)
+            let message = JSON.parse(event.data) as types.ServerMessage
+            for (let [_, handler] of this.messageHandlers) {
+                handler(message, this)
+            }
         }
-    }
-
-    setOnMessage(handler: OnMessageCallback) {
-        // saving the on message handler so when we lose a connection
-        // we could reconnect, and continue the message
-        this.onMessage = handler;
-        this.setOnMessageHandler()
     }
 
     setSocketHandlers() {
         this.connection.onopen = () => {
-            this.onOpen?.(this)
+            this.onOpen(this)
             console.info("Successfuly connected.")
         }
-        this.setOnMessageHandler()
         this.connection.onclose = () => this.reconnect()
     }
 

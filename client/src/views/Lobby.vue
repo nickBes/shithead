@@ -19,19 +19,21 @@ if (rawLobbyId && typeof rawLobbyId == "string") {
 }
 
 onBeforeRouteLeave(() => {
-    states.gameSocket?.send("leaveLobby")
+    if (states.lobby == lobbyId) {
+        states.gameSocket?.send("leaveLobby")
+    }
 })
 
 onMounted(() => {
     if (states.lobby != lobbyId) { // then we either joined or switched
-        states.gameSocket?.setOnMessage((message, sk) => {
+        states.gameSocket?.messageHandlers.set("addToLobby", (message, sk) => {
             match(message)
-                .with({joinLobby: P.any}, () => {
+                .with({joinLobby: P.any}, () => { // means we could join
                     states.lobby = lobbyId
-                    sk.setOnMessage(() => {})
+                    sk.messageHandlers.delete("addToLobby")
                 })
-                .otherwise((msg) => {
-                    console.warn(`Couldn't join the lobby for the following reason: ${JSON.stringify(msg)}`)
+                .otherwise(() => { // couldn't join, go to home
+                    states.gameSocket?.messageHandlers.delete("addToLobby")
                     router.push("/")
                 })
         })

@@ -10,5 +10,6 @@ export const states = {
     gameSocket: undefined as (Socket | undefined),
     lobby: undefined as (types.LobbyId | undefined),
     id: undefined as (types.ClientId | undefined),
-    name: undefined as (string | undefined)
+    name: undefined as (string | undefined),
+    lastMessage: ref<string>()
 }

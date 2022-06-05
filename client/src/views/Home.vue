@@ -2,7 +2,7 @@
 import { onMounted, onUnmounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { states } from '@/game/states'
-import { match, P } from 'ts-pattern'
+import { isMatching, P } from 'ts-pattern'
 import type types from '@/bindings/bindings'
 
 const updateTimeout = 1000
@@ -22,18 +22,18 @@ function updateUsername() {
 }
 
 onMounted(() => {
-    states.gameSocket?.setOnMessage(message => {
-        match(message)
-            .with({lobbies: P.any}, (msg) => lobbies.value = msg.lobbies)
-            .otherwise(msg => console.warn(`Recieved a non related message on lobby query: ${JSON.stringify(msg)}`))
+    states.gameSocket?.messageHandlers.set("getLobbies", (message) => {
+        if (isMatching({lobbies: P.any}, message)) {
+            lobbies.value = message.lobbies
+        }
     })
-
     // will get lobbies now and after updateTimeout time
     getLobbies()
     interval = setInterval(getLobbies, updateTimeout)
 })
 
 onUnmounted(() => {
+    states.gameSocket?.messageHandlers.delete("getLobbies")
     clearInterval(interval)
 })
 

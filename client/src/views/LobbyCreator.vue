@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { states } from "@/game/states"
-import { match, P } from "ts-pattern";
-import { onMounted, ref } from "vue";
+import { isMatching, P } from "ts-pattern";
+import { onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
 
 const router = useRouter()
@@ -19,14 +19,16 @@ function createLobby(event : SubmitEvent) {
 }
 
 onMounted(() => {
-    states.gameSocket?.setOnMessage(message => {
-        match(message)
-            .with({joinLobby: P.any}, msg => {
-                states.lobby = msg.joinLobby
-                router.push(`/lobby/${msg.joinLobby}`)
-            })
-            .otherwise(msg => console.warn(`Recieved a non related message on lobby creator: ${JSON.stringify(msg)}`))
+    states.gameSocket?.messageHandlers.set("createdLobby", (message) => {
+        if (isMatching({joinLobby: P.any}, message)) {
+                states.lobby = message.joinLobby
+                router.push(`/lobby/${message.joinLobby}`)
+        }
     })
+})
+
+onUnmounted(() => {
+    states.gameSocket?.messageHandlers.delete("createdLobby")
 })
 
 </script>
