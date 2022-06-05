@@ -181,6 +181,7 @@ impl GameServerState {
     ) -> Result<(), GameServerError> {
         let mut lobby = self.get_lobby_mut(lobby_id)?;
 
+
         match lobby.remove_player(player_id) {
             RemovePlayerFromLobbyResult::Ok => {
                 // let the other clients know that this player left the lobby
@@ -205,7 +206,11 @@ impl GameServerState {
                 Ok(())
             }
             RemovePlayerFromLobbyResult::LobbyNowEmpty => {
-                // the lobby is now empty, remove it
+                // the lobby is now empty, remove it.
+                //
+                // `lobby` is holding a reference to the map, so we must drop it before trying
+                // to mutate the map to prevent a deadlock.
+                drop(lobby);
                 self.lobbies.remove(&lobby_id);
 
                 Ok(())
@@ -256,12 +261,16 @@ impl GameServerState {
     /// Adds a new client to the list of connected clients, generates a default username for it,
     /// and creates a channel for sending messages specifically to that specific client. Returns
     /// the receiver of that channel.
-    pub fn add_client(&self, client_id: ClientId) -> mpsc::UnboundedReceiver<ServerMessage> {
+    pub fn add_client(
+        &self,
+        client_id: ClientId,
+        username: String,
+    ) -> mpsc::UnboundedReceiver<ServerMessage> {
         let (specific_messages_sender, specific_messages_receiver) = mpsc::unbounded_channel();
         self.client_infos.insert(
             client_id,
             ClientInfo {
-                username: format!("user{}", client_id),
+                username,
                 specific_messages_sender,
             },
         );
@@ -290,6 +299,11 @@ impl GameServerState {
         // can only start the game if it's in the waiting state
         if lobby.state() != LobbyState::Waiting {
             return Err(GameServerError::GameAlreadyStarted);
+        }
+
+        // to start a game you need at least 2 players
+        if lobby.players_amount() < 2 {
+            return Err(StartGameError::NotEnoughPlayers);
         }
 
         // starts the game and gives players their initial cards, so after it we must tell each

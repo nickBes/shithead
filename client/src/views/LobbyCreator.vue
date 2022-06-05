@@ -22,6 +22,7 @@ onMounted(() => {
     states.gameSocket?.setOnMessage(message => {
         match(message)
             .with({joinLobby: P.any}, msg => {
+                states.lobby = msg.joinLobby
                 router.push(`/lobby/${msg.joinLobby}`)
             })
             .otherwise(msg => console.warn(`Recieved a non related message on lobby creator: ${JSON.stringify(msg)}`))

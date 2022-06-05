@@ -7,6 +7,7 @@ use crate::{
     game_server::{GameServerError, GAME_SERVER_STATE},
     messages::ClickedCardLocation,
 };
+
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
