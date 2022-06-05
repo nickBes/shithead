@@ -303,7 +303,7 @@ impl GameServerState {
 
         // to start a game you need at least 2 players
         if lobby.players_amount() < 2 {
-            return Err(StartGameError::NotEnoughPlayers);
+            return Err(GameServerError::NotEnoughPlayers);
         }
 
         // starts the game and gives players their initial cards, so after it we must tell each

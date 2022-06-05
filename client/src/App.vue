@@ -8,6 +8,8 @@ import { P, isMatching } from 'ts-pattern';
 onMounted(() => {
     // connect when mounted
     states.gameSocket = new Socket('ws://localhost:7522', (socket) => {
+        states.lastMessage.value = "Connected to server."
+
         // will recieve the user's id and set it in the global state
         socket.messageHandlers.set("getClientId", (message, sk) => {
             if (isMatching({handshake: P.any}, message)) {
@@ -31,7 +33,7 @@ onMounted(() => {
 <template>
     <nav>
         <h1>Message:</h1>
-        <p>{{states.lastMessage}}</p>
+        <p>{{states.lastMessage.value}}</p>
         <RouterLink to="/">Home</RouterLink>
         <RouterLink to="/lobbyCreator">Create Lobby</RouterLink>
     </nav>

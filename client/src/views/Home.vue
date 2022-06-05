@@ -48,7 +48,7 @@ onUnmounted(() => {
     </form>
     <ul>
         <template v-for="lobby in lobbies">
-            <RouterLink :to="'/lobby/' + lobby.id">{{lobby.name}}</RouterLink>
+            <li><RouterLink :to="'/lobby/' + lobby.id">{{lobby.name}}</RouterLink></li>
         </template>
     </ul>
 </template>
