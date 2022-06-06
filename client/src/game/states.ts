@@ -11,6 +11,8 @@ export const states = {
     lobby: undefined as (types.LobbyId | undefined),
     players: ref<Map<types.LobbyId, string>>(new Map()),
     id: undefined as (types.ClientId | undefined),
+    isAdmin: ref<boolean>(false),
+    isInGame: false,
     name: undefined as (string | undefined),
     lastMessage: ref<string>()
 }

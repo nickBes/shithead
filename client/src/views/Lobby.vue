@@ -20,9 +20,10 @@ if (rawLobbyId && typeof rawLobbyId == "string") {
 }
 
 onBeforeRouteLeave(() => {
-    if (states.lobby == lobbyId) {
+    if (states.lobby == lobbyId && !states.isInGame) {
         states.gameSocket?.send("leaveLobby")
     }
+    states.isAdmin.value = false
 })
 
 onMounted(() => {
@@ -62,6 +63,10 @@ const handleLobbyMessages : OnMessageCallback = (message) => {
                 states.lastMessage.value = `${states.players.value.get(ownerLeftLobby.new_owner_id)} is the new owner.`
             }
         })
+        .with("startGame", () => {
+            states.isInGame = true
+            router.push(`/game/${lobbyId}`)
+        })
         // other messages are managed by other components
         .otherwise(() => {})
 }
@@ -76,4 +81,8 @@ onUnmounted(() => {
 </script>
 <template>
     <p>This is lobby #{{rawLobbyId}}</p>
+    <ul>
+        <li v-for="[id, name] in states.players.value" :key="id">{{name}}</li>
+    </ul>
+    <button v-if="states.isAdmin.value" @click="() => states.gameSocket?.send('startGame')">Start Game</button>
 </template>
