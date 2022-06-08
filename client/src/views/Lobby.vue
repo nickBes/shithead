@@ -32,6 +32,7 @@ onMounted(() => {
             match(message)
                 .with({joinLobby: P.any}, () => { // means we could join
                     states.lobby = lobbyId
+                    message.joinLobby.players.forEach(player => states.players.value.set(player.id, player.username))
                     sk.messageHandlers.delete("addToLobby")
                     states.gameSocket?.messageHandlers.set('handleLobbyMessages', handleLobbyMessages)
                 })

@@ -4,7 +4,7 @@ mod turn;
 
 use crate::{
     cards::{CardsDeck, Rank, CARDS_BY_ID},
-    game_server::{GameServerError, GAME_SERVER_STATE},
+    game_server::{ExposedLobbyPlayerInfo, GameServerError, GAME_SERVER_STATE},
     messages::ClickedCardLocation,
 };
 
@@ -111,6 +111,11 @@ impl Lobby {
         self.player_list.player_ids()
     }
 
+    /// Returns a list of exposed information about each player.
+    pub fn exposed_player_list(&self) -> Vec<ExposedLobbyPlayerInfo> {
+        self.player_ids().map(ExposedLobbyPlayerInfo::new).collect()
+    }
+
     /// Adds a player to the lobby without performing any checks.
     /// The checks are done in `GameServerState::join_lobby`.
     ///
@@ -122,15 +127,15 @@ impl Lobby {
     }
 
     /// Removes the player with the given id from the lobby.
-    /// If that player was the current turn, moves the current turn to the next player. 
+    /// If that player was the current turn, moves the current turn to the next player.
     /// If that player was the owner, makes another player the owner.
     pub async fn remove_player(&mut self, player_id: ClientId) -> RemovePlayerFromLobbyResult {
         // if the removed player was the current turn, move the turn to the next player.
         //
         // this must be done before removing the player, because if we first removed it there would
         // be no way to find who's the next player after him.
-        if let Some(current_turn) = &self.current_turn{
-            if current_turn.player_id() == player_id{
+        if let Some(current_turn) = &self.current_turn {
+            if current_turn.player_id() == player_id {
                 self.turn_finished().await
             }
         }
@@ -170,7 +175,7 @@ impl Lobby {
     pub fn start_game(&mut self) {
         self.state = LobbyState::GameStarted;
 
-        for player in self.player_list.players() {
+        for player in self.player_list.players_mut() {
             player.cards_in_hand = self
                 .deck
                 .take_cards_from_top(INITIAL_CARDS_IN_HAND_AMOUNT)
@@ -298,8 +303,12 @@ impl Lobby {
             ClickedCardLocation::Trash => {
                 // if the player can place any of his cards in the trash, then he is not allowed to
                 // take the trash
-                if player.what_cards_can_be_placed_on(self.trash_top_card_rank()).next().is_some(){
-                    return Err(GameServerError::CantTakeTrashBecauseSomeCardsCanBePlayed)
+                if player
+                    .what_cards_can_be_placed_on(self.trash_top_card_rank())
+                    .next()
+                    .is_some()
+                {
+                    return Err(GameServerError::CantTakeTrashBecauseSomeCardsCanBePlayed);
                 }
 
                 // the player has finished his turn

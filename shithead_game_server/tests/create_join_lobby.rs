@@ -10,7 +10,8 @@ use util::start_test_game_server;
 async fn create_join_lobby() {
     start_test_game_server().await;
 
-    let (mut creating_client, _) = TestClient::connect_and_perform_handshake().await;
+    let (mut creating_client, creating_client_handshake_info) =
+        TestClient::connect_and_perform_handshake().await;
     creating_client
         .send(ClientMessage::CreateLobby {
             lobby_name: random_phrase(5),
@@ -18,23 +19,33 @@ async fn create_join_lobby() {
         .await;
     assert_eq!(
         creating_client.recv().await,
-        ServerMessage::JoinLobby(LobbyId::from_raw(0))
+        ServerMessage::JoinLobby {
+            lobby_id: LobbyId::from_raw(0),
+            players: vec![]
+        }
     );
 
-    let (mut joining_client, _) = TestClient::connect_and_perform_handshake().await;
+    let (mut joining_client, joining_client_handshake_info) =
+        TestClient::connect_and_perform_handshake().await;
     joining_client
         .send(ClientMessage::JoinLobby(LobbyId::from_raw(0)))
         .await;
     assert_eq!(
         joining_client.recv().await,
-        ServerMessage::JoinLobby(LobbyId::from_raw(0))
+        ServerMessage::JoinLobby {
+            lobby_id: LobbyId::from_raw(0),
+            players: vec![ExposedLobbyPlayerInfo {
+                id: ClientId::from_raw(0),
+                username: creating_client_handshake_info.username
+            }]
+        }
     );
 
     assert_eq!(
         creating_client.recv().await,
         ServerMessage::PlayerJoinedLobby(ExposedLobbyPlayerInfo {
             id: ClientId::from_raw(1),
-            username: "user1".to_owned(),
+            username: joining_client_handshake_info.username,
         })
     );
 }

@@ -41,10 +41,10 @@ impl std::fmt::Display for ClientId {
 
 #[derive(Debug)]
 pub struct ClientInfo {
-    username: String,
+    pub username: String,
 
     /// A channel used for sending messages specifically to this client
-    specific_messages_sender: mpsc::UnboundedSender<ServerMessage>,
+    pub specific_messages_sender: mpsc::UnboundedSender<ServerMessage>,
 }
 
 /// The state of the game server.
@@ -142,7 +142,7 @@ impl GameServerState {
         &self,
         player_id: ClientId,
         lobby_id: LobbyId,
-    ) -> Result<broadcast::Sender<ServerMessage>, GameServerError> {
+    ) -> Result<JoinLobbyResult, GameServerError> {
         let mut lobby = self.get_lobby_mut(lobby_id)?;
         if lobby.players_amount() >= MAX_PLAYERS_IN_LOBBY {
             return Err(GameServerError::LobbyFull);
@@ -158,6 +158,10 @@ impl GameServerState {
         // the cleanup.
         let username = self.client_infos.get(&player_id).unwrap().username.clone();
 
+        // get a list of players in the lobby before adding the player, so that we can let him know
+        // which players were in the lobby before he joined.
+        let players = lobby.exposed_player_list();
+
         lobby.add_player(player_id);
 
         // we can ignore the return value since we know it will be Ok(()), becuase the
@@ -169,7 +173,10 @@ impl GameServerState {
                 username,
             }));
 
-        Ok(lobby.broadcast_messages_sender.clone())
+        Ok(JoinLobbyResult{
+            lobby_broadcast_messages_sender: lobby.broadcast_messages_sender.clone(),
+            players,
+        })
     }
 
     /// Removes a player from a lobby, and notifies the players in the lobby about it.
@@ -235,10 +242,7 @@ impl GameServerState {
                     id: lobby_id,
                     players: lobby
                         .player_ids()
-                        .map(|player_id| ExposedLobbyPlayerInfo {
-                            id: player_id,
-                            username: self.get_client_in_lobby(player_id).username.clone(),
-                        })
+                        .map(ExposedLobbyPlayerInfo::new)
                         .collect(),
                     owner_id: lobby.owner_id(),
                 }
@@ -422,6 +426,12 @@ pub enum GameServerError {
     CantChangeUsernameInsideLobby,
 }
 
+/// The result of joining a lobby, which contains some information about the lobby.
+pub struct JoinLobbyResult{
+    pub players: Vec<ExposedLobbyPlayerInfo>,
+    pub lobby_broadcast_messages_sender: broadcast::Sender<ServerMessage>,
+}
+
 /// The information about a lobby that is exposed to the clients.
 #[derive(Debug, Serialize, Deserialize, Clone, TypeDef, PartialEq, Eq)]
 pub struct ExposedLobbyInfo {
@@ -440,4 +450,13 @@ pub struct ExposedLobbyPlayerInfo {
     pub id: ClientId,
 
     pub username: String,
+}
+
+impl ExposedLobbyPlayerInfo{
+    pub fn new(player_id: ClientId)->ExposedLobbyPlayerInfo{
+        ExposedLobbyPlayerInfo {
+            id: player_id,
+            username: GAME_SERVER_STATE.get_client_in_lobby(player_id).username.clone(),
+        }
+    }
 }

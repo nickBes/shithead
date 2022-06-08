@@ -47,6 +47,12 @@ impl OrderedLobbyPlayers {
     }
 
     pub fn players<'a>(
+        &'a self,
+    ) -> std::collections::hash_map::Values<'a, ClientId, LobbyPlayer> {
+        self.players_by_id.values()
+    }
+
+    pub fn players_mut<'a>(
         &'a mut self,
     ) -> std::collections::hash_map::ValuesMut<'a, ClientId, LobbyPlayer> {
         self.players_by_id.values_mut()

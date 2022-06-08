@@ -1,4 +1,7 @@
-use crate::{game_server::GAME_SERVER_STATE, messages::HandshakeClientInfo};
+use crate::{
+    game_server::{ExposedLobbyPlayerInfo, GAME_SERVER_STATE},
+    messages::HandshakeClientInfo,
+};
 use std::net::SocketAddr;
 
 use anyhow::Context;
@@ -141,9 +144,13 @@ impl ClientHandler {
                     }
                     None => {
                         match GAME_SERVER_STATE.join_lobby(self.client_id, lobby_id) {
-                            Ok(broadcast_messages_sender) => {
-                                self.on_joined_lobby(lobby_id, broadcast_messages_sender)
-                                    .await?;
+                            Ok(join_lobby_result) => {
+                                self.on_joined_lobby(
+                                    lobby_id,
+                                    join_lobby_result.lobby_broadcast_messages_sender,
+                                    join_lobby_result.players,
+                                )
+                                .await?;
                             }
                             Err(err) => {
                                 // let the client know about the error that occured
@@ -167,7 +174,7 @@ impl ClientHandler {
                         // if the client is not in a lobby, he can create one
                         let (new_lobby_id, broadcast_messages_sender) =
                             GAME_SERVER_STATE.create_lobby(lobby_name, self.client_id);
-                        self.on_joined_lobby(new_lobby_id, broadcast_messages_sender)
+                        self.on_joined_lobby(new_lobby_id, broadcast_messages_sender, Vec::new())
                             .await?;
                     }
                 }
@@ -257,14 +264,18 @@ impl ClientHandler {
         &mut self,
         new_lobby_id: LobbyId,
         lobby_broadcast_messages_sender: broadcast::Sender<ServerMessage>,
+        players: Vec<ExposedLobbyPlayerInfo>,
     ) -> anyhow::Result<()> {
         self.lobby_id = Some(new_lobby_id);
         self.broadcast_messages_receiver = lobby_broadcast_messages_sender.subscribe();
         self.broadcast_messages_sender = lobby_broadcast_messages_sender;
 
         // let the client know that he's now in the lobby
-        self.send_message(&ServerMessage::JoinLobby(new_lobby_id))
-            .await?;
+        self.send_message(&ServerMessage::JoinLobby {
+            lobby_id: new_lobby_id,
+            players,
+        })
+        .await?;
 
         Ok(())
     }
