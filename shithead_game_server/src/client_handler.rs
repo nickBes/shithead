@@ -116,7 +116,18 @@ impl ClientHandler {
     async fn handle_message(&mut self, msg: ClientMessage) -> anyhow::Result<()> {
         match msg {
             ClientMessage::SetUsername(new_username) => {
-                GAME_SERVER_STATE.set_username(self.client_id, new_username);
+                match self.lobby_id {
+                    Some(_) => {
+                        // can't change name while in a lobby
+                        self.send_message(&ServerMessage::Error(
+                            GameServerError::CantChangeUsernameInsideLobby.to_string(),
+                        ))
+                        .await?;
+                    }
+                    None => {
+                        GAME_SERVER_STATE.set_username(self.client_id, new_username);
+                    }
+                }
             }
             ClientMessage::JoinLobby(lobby_id) => {
                 match self.lobby_id {
@@ -196,7 +207,10 @@ impl ClientHandler {
             ClientMessage::LeaveLobby => {
                 match self.lobby_id {
                     Some(lobby_id) => {
-                        match GAME_SERVER_STATE.remove_player_from_lobby(self.client_id, lobby_id).await {
+                        match GAME_SERVER_STATE
+                            .remove_player_from_lobby(self.client_id, lobby_id)
+                            .await
+                        {
                             Ok(()) => self.on_leave_lobby().await,
                             Err(err) => {
                                 self.send_message(&ServerMessage::Error(err.to_string()))
