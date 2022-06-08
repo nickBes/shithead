@@ -196,7 +196,7 @@ impl ClientHandler {
             ClientMessage::LeaveLobby => {
                 match self.lobby_id {
                     Some(lobby_id) => {
-                        match GAME_SERVER_STATE.remove_player_from_lobby(self.client_id, lobby_id) {
+                        match GAME_SERVER_STATE.remove_player_from_lobby(self.client_id, lobby_id).await {
                             Ok(()) => self.on_leave_lobby().await,
                             Err(err) => {
                                 self.send_message(&ServerMessage::Error(err.to_string()))
@@ -295,6 +295,7 @@ impl ClientHandler {
         if let Some(lobby_id) = self.lobby_id {
             GAME_SERVER_STATE
                 .remove_player_from_lobby(self.client_id, lobby_id)
+                .await
                 .context("failed to remove player from lobby")?;
         }
 
