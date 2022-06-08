@@ -1,7 +1,13 @@
 import type Socket from "./socket"
 import type types from "@/bindings/bindings"
 import { ref } from "vue"
+import type { NotificationOptions, NotificationPlacement } from "naive-ui"
 
+export const notificationPlacement : NotificationPlacement = "bottom-right"
+
+export const notificationSettings : NotificationOptions = {
+    duration: 3000,
+}
 
 // global states which can be accessed and modified from every component
 export const states = {
@@ -14,5 +20,4 @@ export const states = {
     isOwner: ref<boolean>(false),
     isInGame: false,
     name: undefined as (string | undefined),
-    lastMessage: ref<string>()
 }
