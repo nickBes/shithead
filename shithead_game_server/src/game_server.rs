@@ -174,7 +174,7 @@ impl GameServerState {
 
     /// Removes a player from a lobby, and notifies the players in the lobby about it.
     /// If a lobby with the provided lobby id doesn't exist, returns a corresponding error.
-    pub fn remove_player_from_lobby(
+    pub async fn remove_player_from_lobby(
         &self,
         player_id: ClientId,
         lobby_id: LobbyId,
@@ -182,7 +182,7 @@ impl GameServerState {
         let mut lobby = self.get_lobby_mut(lobby_id)?;
 
 
-        match lobby.remove_player(player_id) {
+        match lobby.remove_player(player_id).await {
             RemovePlayerFromLobbyResult::Ok => {
                 // let the other clients know that this player left the lobby
                 // we can ignore the return value since we know it will be Ok(()), becuase the

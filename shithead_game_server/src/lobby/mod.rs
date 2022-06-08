@@ -121,9 +121,21 @@ impl Lobby {
             .insert(player_id, LobbyPlayer::without_any_cards());
     }
 
-    /// Removes the player with the given id from the lobby, and moves make another player the
-    /// owner.
-    pub fn remove_player(&mut self, player_id: ClientId) -> RemovePlayerFromLobbyResult {
+    /// Removes the player with the given id from the lobby.
+    /// If that player was the current turn, moves the current turn to the next player. 
+    /// If that player was the owner, makes another player the owner.
+    pub async fn remove_player(&mut self, player_id: ClientId) -> RemovePlayerFromLobbyResult {
+        // if the removed player was the current turn, move the turn to the next player.
+        //
+        // this must be done before removing the player, because if we first removed it there would
+        // be no way to find who's the next player after him.
+        if let Some(current_turn) = &self.current_turn{
+            if current_turn.player_id() == player_id{
+                self.turn_finished().await
+            }
+        }
+
+        // remove the player
         if self.player_list.remove(player_id).is_none() {
             return RemovePlayerFromLobbyResult::PlayerWasntInLobby;
         }
