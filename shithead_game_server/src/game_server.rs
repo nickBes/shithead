@@ -417,6 +417,9 @@ pub enum GameServerError {
 
     #[error("you can't take the trash because some of your cards can be played")]
     CantTakeTrashBecauseSomeCardsCanBePlayed,
+
+    #[error("you can't change your username while inside a lobby")]
+    CantChangeUsernameInsideLobby,
 }
 
 /// The information about a lobby that is exposed to the clients.
