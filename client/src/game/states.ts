@@ -9,7 +9,10 @@ export const states = {
     // when created or re-assigned
     gameSocket: undefined as (Socket | undefined),
     lobby: undefined as (types.LobbyId | undefined),
+    players: ref<Map<types.ClientId, string>>(new Map()),
     id: undefined as (types.ClientId | undefined),
+    isOwner: ref<boolean>(false),
+    isInGame: false,
     name: undefined as (string | undefined),
     lastMessage: ref<string>()
 }

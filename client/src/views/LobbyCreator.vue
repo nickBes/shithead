@@ -22,6 +22,7 @@ onMounted(() => {
     states.gameSocket?.messageHandlers.set("createdLobby", (message) => {
         if (isMatching({joinLobby: P.any}, message)) {
                 states.lobby = message.joinLobby
+                states.isOwner.value = true
                 router.push(`/lobby/${message.joinLobby}`)
         }
     })

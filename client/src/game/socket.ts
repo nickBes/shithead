@@ -6,14 +6,16 @@ export type OnMessageCallback = (message:types.ServerMessage, socket:Socket) => 
 export default class Socket {
     connection : WebSocket;
     onOpen : ServerCallback
+    onClose : ServerCallback
     reconnectionTimeout = 5000
     messageHandlers = new Map<string, OnMessageCallback>()
 
     // has to be run only in useEffect because we need the window to exist
     // to create a websocket and run updates
-    constructor(serverUrl : string, onOpen : ServerCallback) {
+    constructor(serverUrl : string, onOpen : ServerCallback, onClose : ServerCallback) {
         this.connection = new WebSocket(serverUrl);
         this.onOpen = onOpen
+        this.onClose = onClose
         this.setSocketHandlers()
 
         this.connection.onmessage = (event : MessageEvent) => {
@@ -30,9 +32,11 @@ export default class Socket {
     setSocketHandlers() {
         this.connection.onopen = () => {
             this.onOpen(this)
-            console.info("Successfuly connected.")
         }
-        this.connection.onclose = () => this.reconnect()
+        this.connection.onclose = () => {
+            this.onClose(this)
+            this.reconnect()
+        }
     }
 
     send(message : types.ClientMessage) {
@@ -43,7 +47,6 @@ export default class Socket {
     }
 
     reconnect() {
-        console.info('Attempt to reconnect has begun.')
         // wait a lil to not kill cpu
         setTimeout(() => {
             this.connection = new WebSocket(this.connection.url)

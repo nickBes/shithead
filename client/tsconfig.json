@@ -6,7 +6,8 @@
     "paths": {
       "@/*": ["./src/*"],
       "@/bindings/*": ["../shithead_game_server/bindings/*"]
-    }
+    },
+    "lib": ["ESNext"]
   },
 
   "references": [
