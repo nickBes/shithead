@@ -23,7 +23,7 @@ onBeforeRouteLeave(() => {
     if (states.lobby == lobbyId && !states.isInGame) {
         states.gameSocket?.send("leaveLobby")
     }
-    states.isAdmin.value = false
+    states.isOwner.value = false
 })
 
 onMounted(() => {
@@ -84,5 +84,5 @@ onUnmounted(() => {
     <ul>
         <li v-for="[id, name] in states.players.value" :key="id">{{name}}</li>
     </ul>
-    <button v-if="states.isAdmin.value" @click="() => states.gameSocket?.send('startGame')">Start Game</button>
+    <button v-if="states.isOwner.value" @click="() => states.gameSocket?.send('startGame')">Start Game</button>
 </template>
