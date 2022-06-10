@@ -19,7 +19,10 @@ import SocketConnection from "@/components/SocketConnection.vue"
     </n-config-provider>
 </template>
 
-<style scoped>
+<style>
+    a {
+        text-decoration: none;
+    }
     nav {
         display: flex;
         flex-direction: column;

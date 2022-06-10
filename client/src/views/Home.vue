@@ -1,14 +1,17 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { states } from '@/game/states'
 import { isMatching, P } from 'ts-pattern'
+import FuzzySearch from 'fuzzy-search'
+import { NInput, NList, NListItem, NButton, NThing, NScrollbar } from 'naive-ui'
 import type types from '@/bindings/bindings'
 
 const updateTimeout = 1000
-let lobbies = ref<types.ExposedLobbyInfo[]>()
+let lobbies = ref<types.ExposedLobbyInfo[]>([])
 let username = ref<string>()
 let interval : number
+let lobbySearchInput = ref<string>()
 
 function getLobbies() {
     states.gameSocket?.send("getLobbies")
@@ -37,6 +40,13 @@ onUnmounted(() => {
     clearInterval(interval)
 })
 
+const filteredLobbies = computed(() => {
+    if (lobbySearchInput.value == undefined) return lobbies.value
+    // sorting lobbies by their names from the most relevant to the least
+    const fuzzy = new FuzzySearch(lobbies.value, ['name'], {sort: true})
+    return fuzzy.search(lobbySearchInput.value)
+})
+
 </script>
 
 <template>
@@ -46,9 +56,21 @@ onUnmounted(() => {
         <input v-model.lazy.trim="username" type="text" placeholder="new username"/>
         <button type="submit">change username</button>
     </form>
-    <ul>
-        <template v-for="lobby in lobbies">
-            <li><RouterLink :to="'/lobby/' + lobby.id">{{lobby.name}}</RouterLink></li>
+    <n-list bordered>
+        <template #header>
+            <n-input placeholder="Filter lobbies by name" v-model:value="lobbySearchInput"/>
         </template>
-    </ul>
+            <!-- the height limit is temporary just to demonstrate the scrollbar -->
+            <n-scrollbar style="max-height: 150px">
+                    <n-list-item v-for="lobby in filteredLobbies">
+                        <n-thing :title="lobby.name"/>
+                        <template #suffix>
+                            <RouterLink :to="'/lobby/' + lobby.id">
+                                <n-button>Join</n-button>
+                            </RouterLink>
+                        </template>
+                    </n-list-item>
+            </n-scrollbar>
+
+    </n-list>
 </template>
