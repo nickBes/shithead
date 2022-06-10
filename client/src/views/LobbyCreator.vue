@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { states } from "@/game/states"
-import { isMatching, P } from "ts-pattern";
-import { onMounted, onUnmounted, ref } from "vue";
-import { useRouter } from "vue-router";
+import { notificationSettings, states } from "@/game/states"
+import { isMatching, P } from "ts-pattern"
+import { onMounted, onUnmounted, ref } from "vue"
+import { useRouter } from "vue-router"
+import { useNotification } from "naive-ui"
 
 const router = useRouter()
 let lobbyName = ref<string>()
+const notification = useNotification()
 
 function createLobby(event : SubmitEvent) {
     event?.preventDefault()
@@ -25,6 +27,8 @@ onMounted(() => {
                 states.lobby = lobbyId
                 message.joinLobby.players.forEach(player => states.players.value.set(player.id, player.username))
                 states.isOwner.value = true
+
+                notification.success({title: "Successfully created a lobby", ...notificationSettings})
                 router.push(`/lobby/${lobbyId}`)
         }
     })
