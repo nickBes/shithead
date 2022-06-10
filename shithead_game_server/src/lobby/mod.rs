@@ -39,6 +39,11 @@ impl LobbyId {
         Self(raw)
     }
 }
+impl std::fmt::Display for LobbyId{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
+    }
+}
 
 /// A state of a lobby.
 #[derive(Debug, Serialize, PartialEq, Eq, Clone, Copy, Hash)]

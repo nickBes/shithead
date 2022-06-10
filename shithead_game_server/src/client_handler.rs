@@ -6,6 +6,7 @@ use std::net::SocketAddr;
 
 use anyhow::Context;
 use futures::{SinkExt, StreamExt};
+use log::debug;
 use thiserror::Error;
 use tokio::{
     net::TcpStream,
@@ -122,12 +123,20 @@ impl ClientHandler {
                 match self.lobby_id {
                     Some(_) => {
                         // can't change name while in a lobby
+                        debug!(
+                            "can't set username while in a lobby for player #{}",
+                            self.client_id
+                        );
                         self.send_message(&ServerMessage::Error(
                             GameServerError::CantChangeUsernameInsideLobby.to_string(),
                         ))
                         .await?;
                     }
                     None => {
+                        debug!(
+                            "changing username of player #{} to {}",
+                            self.client_id, new_username
+                        );
                         GAME_SERVER_STATE.set_username(self.client_id, new_username);
                     }
                 }
@@ -137,6 +146,10 @@ impl ClientHandler {
                     // if the client is already in a lobby
                     Some(_) => {
                         // let the client know about the error that occured
+                        debug!(
+                            "can't join lobby #{} becuase player #{} is already in a lobby",
+                            lobby_id, self.client_id
+                        );
                         self.send_message(&ServerMessage::Error(
                             GameServerError::AlreadyInALobby.to_string(),
                         ))
@@ -145,6 +158,7 @@ impl ClientHandler {
                     None => {
                         match GAME_SERVER_STATE.join_lobby(self.client_id, lobby_id) {
                             Ok(join_lobby_result) => {
+                                debug!("joined lobby #{} for player #{}", lobby_id, self.client_id);
                                 self.on_joined_lobby(
                                     lobby_id,
                                     join_lobby_result.lobby_broadcast_messages_sender,
@@ -153,6 +167,10 @@ impl ClientHandler {
                                 .await?;
                             }
                             Err(err) => {
+                                debug!(
+                                    "failed to join lobby #{} for player #{}, err: {}",
+                                    lobby_id, self.client_id, err
+                                );
                                 // let the client know about the error that occured
                                 self.send_message(&ServerMessage::Error(err.to_string()))
                                     .await?;
@@ -165,6 +183,10 @@ impl ClientHandler {
                 match self.lobby_id {
                     Some(_) => {
                         // if the client is already in a lobby, he can't create a new one
+                        debug!(
+                            "can't create lobby because player #{} is already in a lobby",
+                            self.client_id
+                        );
                         self.send_message(&ServerMessage::Error(
                             GameServerError::AlreadyInALobby.to_string(),
                         ))
@@ -174,6 +196,10 @@ impl ClientHandler {
                         // if the client is not in a lobby, he can create one
                         let (new_lobby_id, broadcast_messages_sender) =
                             GAME_SERVER_STATE.create_lobby(lobby_name, self.client_id);
+                        debug!(
+                            "created lobby for player #{}, new lobby id: {}",
+                            self.client_id, new_lobby_id
+                        );
                         self.on_joined_lobby(new_lobby_id, broadcast_messages_sender, Vec::new())
                             .await?;
                     }
@@ -191,10 +217,18 @@ impl ClientHandler {
                         // if the client is in a lobby, try to start the game
                         match GAME_SERVER_STATE.start_game(self.client_id, lobby_id) {
                             Ok(()) => {
+                                debug!(
+                                    "started game in lobby #{} by player #{}",
+                                    lobby_id, self.client_id
+                                );
                                 // the game has started, let all the clients know
                                 self.send_broadcast_message(ServerMessage::StartGame).await;
                             }
                             Err(err) => {
+                                debug!(
+                                    "failed to start game in lobby #{} by player #{}, err: {}",
+                                    lobby_id, self.client_id, err
+                                );
                                 // failed to start the game, let the client know what happened
                                 self.send_message(&ServerMessage::Error(err.to_string()))
                                     .await?;
@@ -204,6 +238,7 @@ impl ClientHandler {
                     None => {
                         // if the client is not in a lobby, he is definitely not the owner, so let
                         // him know
+                        debug!("can't start game in lobby #{:?} by player #{} because he's not the owner", self.lobby_id, self.client_id);
                         self.send_message(&ServerMessage::Error(
                             GameServerError::NotOwner.to_string(),
                         ))
@@ -218,8 +253,18 @@ impl ClientHandler {
                             .remove_player_from_lobby(self.client_id, lobby_id)
                             .await
                         {
-                            Ok(()) => self.on_leave_lobby().await,
+                            Ok(()) => {
+                                debug!(
+                                    "removed player #{} from lobby #{}",
+                                    self.client_id, lobby_id
+                                );
+                                self.on_leave_lobby().await
+                            }
                             Err(err) => {
+                                debug!(
+                                    "failed to remove player #{} from lobby #{}, err: {}",
+                                    self.client_id, lobby_id, err
+                                );
                                 self.send_message(&ServerMessage::Error(err.to_string()))
                                     .await?
                             }
@@ -227,6 +272,10 @@ impl ClientHandler {
                     }
                     None => {
                         // the player is not in a lobby
+                        debug!(
+                            "can't remove player #{} from lobby because he's not in a lobby",
+                            self.client_id, 
+                        );
                         self.send_message(&ServerMessage::Error(
                             GameServerError::NotInALobby.to_string(),
                         ))
@@ -318,6 +367,7 @@ impl ClientHandler {
         // connected clients and removing it from the lobby, there will be a lobby with a client
         // that doesn't seem to exist, which doesn't make sense.
         if let Some(lobby_id) = self.lobby_id {
+            debug!("removing player from lobby during cleanup");
             GAME_SERVER_STATE
                 .remove_player_from_lobby(self.client_id, lobby_id)
                 .await
@@ -325,6 +375,7 @@ impl ClientHandler {
         }
 
         // then remove the client from the list of connected clients.
+        debug!("removing player during cleanup");
         GAME_SERVER_STATE.remove_client(self.client_id);
         Ok(())
     }
@@ -339,6 +390,8 @@ pub async fn handle_client(stream: TcpStream, addr: SocketAddr) -> anyhow::Resul
     let id = GAME_SERVER_STATE.next_client_id();
 
     let initial_username = format!("user{}", id);
+
+    debug!("adding client with id {id} and initial username {initial_username}");
 
     // add the client to the list of connected clients.
     let specific_messages_receiver = GAME_SERVER_STATE.add_client(id, initial_username.clone());
