@@ -12,7 +12,10 @@ use crate::{
 pub enum ServerMessage {
     Handshake(HandshakeClientInfo),
     Lobbies(Vec<ExposedLobbyInfo>),
-    JoinLobby(LobbyId),
+    JoinLobby {
+        lobby_id: LobbyId,
+        players: Vec<ExposedLobbyPlayerInfo>,
+    },
     Error(String),
     PlayerJoinedLobby(ExposedLobbyPlayerInfo),
     PlayerLeftLobby(ClientId),

@@ -35,6 +35,7 @@ onMounted(() => {
                 .with({joinLobby: P.any}, () => { // means we could join
                     states.lobby = lobbyId
                     notification.success({title: "Successfully joined a lobby", ...notificationSettings})
+                    message.joinLobby.players.forEach(player => states.players.value.set(player.id, player.username))
                     sk.messageHandlers.delete("addToLobby")
                     states.gameSocket?.messageHandlers.set('handleLobbyMessages', handleLobbyMessages)
                 })

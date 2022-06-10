@@ -23,10 +23,13 @@ function createLobby(event : SubmitEvent) {
 onMounted(() => {
     states.gameSocket?.messageHandlers.set("createdLobby", (message) => {
         if (isMatching({joinLobby: P.any}, message)) {
-                states.lobby = message.joinLobby
+                let lobbyId = message.joinLobby.lobby_id
+                states.lobby = lobbyId
+                message.joinLobby.players.forEach(player => states.players.value.set(player.id, player.username))
                 states.isOwner.value = true
-                router.push(`/lobby/${message.joinLobby}`)
+
                 notification.success({title: "Successfully created a lobby", ...notificationSettings})
+                router.push(`/lobby/${lobbyId}`)
         }
     })
 })
