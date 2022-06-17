@@ -1,8 +1,10 @@
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 use typescript_type_def::TypeDef;
 
 use crate::{
-    cards::{CardId, Card},
+    cards::{Card, CardId},
     game_server::{ClientId, ExposedLobbyInfo, ExposedLobbyPlayerInfo},
     lobby::LobbyId,
 };
@@ -37,12 +39,16 @@ pub enum ServerMessage {
         cards_in_hand: Vec<CardId>,
     },
 
-    MovePlayerCardFromThreeUpToHand{
-        up_three_card_index: usize
+    MovePlayerCardFromThreeUpToHand {
+        up_three_card_index: usize,
     },
 
-    MovePlayerCardFromHandToThreeUp{
-        hand_card_index: usize
+    MovePlayerCardFromHandToThreeUp {
+        hand_card_index: usize,
+    },
+
+    TheeUpSelectionDone {
+        three_up_cards_of_modified_players: HashMap<ClientId, Vec<CardId>>,
     },
 
     GiveTrash(ClientId),

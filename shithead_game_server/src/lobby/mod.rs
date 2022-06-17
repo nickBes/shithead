@@ -10,7 +10,7 @@ use crate::{
     some_or_return,
 };
 
-use std::{sync::Arc, time::Duration};
+use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use serde::{Deserialize, Serialize};
 use tokio::sync::{broadcast, Notify};
@@ -296,17 +296,37 @@ impl Lobby {
             _ => return,
         };
 
+        // the 3 up cards of all clients who didn't choose their 3 up cards, and some cards were
+        // randomly chosen for them.
+        let mut three_up_cards_of_modified_players = HashMap::new();
+
         // make sure that all players have chosen their top 3 cards, and if they didn't, randomly
         // choose them.
-        for player in self.data.player_list.players_mut() {
-            while player.three_up_cards.len() < 3 {
-                player
+        for (&player_id, player) in &mut self.data.player_list.players_by_id {
+            if player.three_up_cards.len() < 3 {
+                // if the player doesn't have 3 up cards, choose a bunch of random cards from his
+                // hand until he has enough.
+                while player.three_up_cards.len() < 3 {
+                    player
                     .three_up_cards
                     .push(player.cards_in_hand.pop().expect(
-                    "failed to randomly choose top 3 cards for player because he ran out of cards",
-                ));
+                        "failed to randomly choose top 3 cards for player because he ran out of cards",
+                    ));
+                }
+
+                // add this player to the list of modified players
+                three_up_cards_of_modified_players.insert(player_id, player.three_up_cards.clone());
             }
         }
+
+        // update all players about the face that the 3 up selection is over and about the modified
+        // players.
+        let _ = self
+            .data
+            .broadcast_messages_sender
+            .send(ServerMessage::TheeUpSelectionDone {
+                three_up_cards_of_modified_players,
+            });
 
         // start the first turn
         let first_turn_player_id = self.data.player_list.first_turn_player();

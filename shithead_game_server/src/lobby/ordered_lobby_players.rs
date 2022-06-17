@@ -2,12 +2,11 @@ use crate::lobby::lobby_player::LobbyPlayer;
 use crate::lobby::CardId;
 use crate::lobby::ClientId;
 use std::collections::HashMap;
-use std::ops::Index;
 
 /// A list of players in the lobby, ordered by their turns.
 #[derive(Debug)]
 pub struct OrderedLobbyPlayers {
-    players_by_id: HashMap<ClientId, LobbyPlayer>,
+    pub players_by_id: HashMap<ClientId, LobbyPlayer>,
     turns_order: Vec<ClientId>,
 }
 
@@ -46,9 +45,7 @@ impl OrderedLobbyPlayers {
         self.turns_order.iter().copied()
     }
 
-    pub fn players<'a>(
-        &'a self,
-    ) -> std::collections::hash_map::Values<'a, ClientId, LobbyPlayer> {
+    pub fn players<'a>(&'a self) -> std::collections::hash_map::Values<'a, ClientId, LobbyPlayer> {
         self.players_by_id.values()
     }
 
@@ -97,13 +94,12 @@ impl OrderedLobbyPlayers {
     }
 
     /// Returns a reference to the player with the given id, if it exists.
-    pub fn get_player(&self, player_id: ClientId) -> Option<&LobbyPlayer>{
+    pub fn get_player(&self, player_id: ClientId) -> Option<&LobbyPlayer> {
         self.players_by_id.get(&player_id)
     }
 
     /// Returns a mutable reference to the player with the given id, if it exists.
-    pub fn get_player_mut(&mut self, player_id: ClientId) -> Option<&mut LobbyPlayer>{
+    pub fn get_player_mut(&mut self, player_id: ClientId) -> Option<&mut LobbyPlayer> {
         self.players_by_id.get_mut(&player_id)
     }
 }
-
