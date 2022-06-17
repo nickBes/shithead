@@ -330,7 +330,6 @@ impl GameServerState {
                 .specific_messages_sender
                 .send(ServerMessage::InitialCards {
                     cards_in_hand: lobby_player_info.cards_in_hand.clone(),
-                    three_up_cards: lobby_player_info.three_up_cards.clone(),
                 })
                 .unwrap();
         }

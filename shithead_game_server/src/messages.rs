@@ -35,8 +35,16 @@ pub enum ServerMessage {
 
     InitialCards {
         cards_in_hand: Vec<CardId>,
-        three_up_cards: Vec<CardId>,
     },
+
+    MovePlayerCardFromThreeUpToHand{
+        up_three_card_index: usize
+    },
+
+    MovePlayerCardFromHandToThreeUp{
+        hand_card_index: usize
+    },
+
     GiveTrash(ClientId),
 
     Turn(ClientId),
@@ -73,15 +81,15 @@ pub enum ClickedCardLocation {
 
     #[serde(rename_all = "camelCase")]
     FromCardsInHand {
-        card_index: u32,
+        card_index: usize,
     },
 
     FromThreeUpCards {
-        card_index: u32,
+        card_index: usize,
     },
 
     FromThreeDownCards {
-        card_index: u32,
+        card_index: usize,
     },
 }
 

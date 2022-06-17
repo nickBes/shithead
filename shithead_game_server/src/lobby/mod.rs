@@ -63,7 +63,7 @@ pub enum LobbyState {
 /// A timer for the choosing top 3 lobby state.
 #[derive(Debug)]
 pub struct ChoosingTop3State {
-    timer: ChoosingTop3Timer,
+    _timer: ChoosingTop3Timer,
     deck: CardsDeck,
 }
 
@@ -265,7 +265,7 @@ impl Lobby {
         // set the state of the lobby to an in game state.
         self.state = LobbyState::ChoosingTop3(ChoosingTop3State {
             deck,
-            timer: ChoosingTop3Timer::new(self.id()),
+            _timer: ChoosingTop3Timer::new(self.id()),
         })
     }
 
@@ -350,6 +350,14 @@ impl Lobby {
                         }
                         let card = player.cards_in_hand.swap_remove(card_index);
                         player.three_up_cards.push(card);
+
+                        // let all the players know about this card movement.
+                        let _ = self.broadcast_messages_sender().send(
+                            ServerMessage::MovePlayerCardFromHandToThreeUp {
+                                hand_card_index: card_index,
+                            },
+                        );
+
                         Ok(())
                     }
                     ClickedCardLocation::FromThreeUpCards { card_index } => {
@@ -361,6 +369,14 @@ impl Lobby {
                         }
                         let card = player.three_up_cards.swap_remove(card_index);
                         player.cards_in_hand.push(card);
+
+                        // let all the players know about this card movement.
+                        let _ = self.broadcast_messages_sender().send(
+                            ServerMessage::MovePlayerCardFromThreeUpToHand {
+                                up_three_card_index: card_index,
+                            },
+                        );
+
                         Ok(())
                     }
                     _ => {
