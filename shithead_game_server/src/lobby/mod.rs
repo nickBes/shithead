@@ -33,9 +33,9 @@ pub const MAX_PLAYERS_IN_LOBBY: usize = 6;
 
 pub const INITIAL_CARDS_IN_HAND_AMOUNT: usize = 6;
 
-pub const TURN_DURATION: Duration = Duration::from_secs(3);
+pub const TURN_DURATION: Duration = Duration::from_secs(20);
 
-pub const CHOOSE_TOP_3_DURATION: Duration = Duration::from_secs(3);
+pub const CHOOSE_TOP_3_DURATION: Duration = Duration::from_secs(20);
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Hash, TypeDef)]
 pub struct LobbyId(usize);
@@ -256,7 +256,7 @@ impl Lobby {
                 .take_cards_from_top(INITIAL_CARDS_IN_HAND_AMOUNT)
                 .expect("not enough cards to initialize game")
                 .collect();
-            player.three_up_cards = deck
+            player.three_down_cards = deck
                 .take_cards_from_top(3)
                 .expect("not enough cards to initialize game")
                 .collect();
