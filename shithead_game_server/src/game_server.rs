@@ -111,7 +111,7 @@ impl GameServerState {
         let lobby = Lobby::new(lobby_id, name, owner_id);
 
         // save the broadcast_messages_sender before giving ownership of the lobby
-        let broadcast_messages_sender = lobby.broadcast_messages_sender.clone();
+        let broadcast_messages_sender = lobby.broadcast_messages_sender().clone();
 
         self.lobbies.insert(lobby_id, lobby);
 
@@ -147,7 +147,7 @@ impl GameServerState {
         if lobby.players_amount() >= MAX_PLAYERS_IN_LOBBY {
             return Err(GameServerError::LobbyFull);
         }
-        if lobby.state() != LobbyState::Waiting {
+        if !lobby.is_waiting() {
             return Err(GameServerError::GameAlreadyStarted);
         }
 
@@ -167,14 +167,14 @@ impl GameServerState {
         // we can ignore the return value since we know it will be Ok(()), becuase the
         // lobby can't be empty otherwise it wouldn't exist, so we must still have listeners
         let _ = lobby
-            .broadcast_messages_sender
+            .broadcast_messages_sender()
             .send(ServerMessage::PlayerJoinedLobby(ExposedLobbyPlayerInfo {
                 id: player_id,
                 username,
             }));
 
-        Ok(JoinLobbyResult{
-            lobby_broadcast_messages_sender: lobby.broadcast_messages_sender.clone(),
+        Ok(JoinLobbyResult {
+            lobby_broadcast_messages_sender: lobby.broadcast_messages_sender().clone(),
             players,
         })
     }
@@ -188,14 +188,13 @@ impl GameServerState {
     ) -> Result<(), GameServerError> {
         let mut lobby = self.get_lobby_mut(lobby_id)?;
 
-
         match lobby.remove_player(player_id).await {
             RemovePlayerFromLobbyResult::Ok => {
                 // let the other clients know that this player left the lobby
                 // we can ignore the return value since we know it will be Ok(()), becuase the
                 // lobby isn't empty, so we still have listeners
                 let _ = lobby
-                    .broadcast_messages_sender
+                    .broadcast_messages_sender()
                     .send(ServerMessage::PlayerLeftLobby(player_id));
 
                 Ok(())
@@ -207,7 +206,7 @@ impl GameServerState {
                 // we can ignore the return value since we know it will be Ok(()), becuase the
                 // lobby isn't empty, so we still have listeners.
                 let _ = lobby
-                    .broadcast_messages_sender
+                    .broadcast_messages_sender()
                     .send(ServerMessage::OwnerLeftLobby { new_owner_id });
 
                 Ok(())
@@ -288,7 +287,7 @@ impl GameServerState {
 
     /// Attempts to start the game in the given lobby, given the id of the client who requested to
     /// start the game and the id of the lobby.
-    pub fn start_game(
+    pub async fn start_game(
         &self,
         requesting_client_id: ClientId,
         lobby_id: LobbyId,
@@ -301,7 +300,7 @@ impl GameServerState {
         }
 
         // can only start the game if it's in the waiting state
-        if lobby.state() != LobbyState::Waiting {
+        if !lobby.is_waiting() {
             return Err(GameServerError::GameAlreadyStarted);
         }
 
@@ -309,6 +308,11 @@ impl GameServerState {
         if lobby.players_amount() < 2 {
             return Err(GameServerError::NotEnoughPlayers);
         }
+
+        // the game is about to start, let the clients know
+        let _ = lobby
+            .broadcast_messages_sender()
+            .send(ServerMessage::StartGame);
 
         // starts the game and gives players their initial cards, so after it we must tell each
         // player his cards
@@ -345,9 +349,9 @@ impl GameServerState {
     }
 
     /// Tells the lobby with the given id that the current turn has timed out.
-    pub fn turn_timeout(&self, lobby_id: LobbyId) {
+    pub async fn turn_timeout(&self, lobby_id: LobbyId) {
         if let Some(mut lobby) = self.lobbies.get_mut(&lobby_id) {
-            lobby.turn_timeout();
+            lobby.turn_timeout().await;
         }
     }
 }
@@ -427,7 +431,7 @@ pub enum GameServerError {
 }
 
 /// The result of joining a lobby, which contains some information about the lobby.
-pub struct JoinLobbyResult{
+pub struct JoinLobbyResult {
     pub players: Vec<ExposedLobbyPlayerInfo>,
     pub lobby_broadcast_messages_sender: broadcast::Sender<ServerMessage>,
 }
@@ -452,11 +456,14 @@ pub struct ExposedLobbyPlayerInfo {
     pub username: String,
 }
 
-impl ExposedLobbyPlayerInfo{
-    pub fn new(player_id: ClientId)->ExposedLobbyPlayerInfo{
+impl ExposedLobbyPlayerInfo {
+    pub fn new(player_id: ClientId) -> ExposedLobbyPlayerInfo {
         ExposedLobbyPlayerInfo {
             id: player_id,
-            username: GAME_SERVER_STATE.get_client_in_lobby(player_id).username.clone(),
+            username: GAME_SERVER_STATE
+                .get_client_in_lobby(player_id)
+                .username
+                .clone(),
         }
     }
 }

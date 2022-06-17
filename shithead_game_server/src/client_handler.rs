@@ -215,14 +215,12 @@ impl ClientHandler {
                 match self.lobby_id {
                     Some(lobby_id) => {
                         // if the client is in a lobby, try to start the game
-                        match GAME_SERVER_STATE.start_game(self.client_id, lobby_id) {
+                        match GAME_SERVER_STATE.start_game(self.client_id, lobby_id).await {
                             Ok(()) => {
                                 debug!(
                                     "started game in lobby #{} by player #{}",
                                     lobby_id, self.client_id
                                 );
-                                // the game has started, let all the clients know
-                                self.send_broadcast_message(ServerMessage::StartGame).await;
                             }
                             Err(err) => {
                                 debug!(
@@ -352,7 +350,7 @@ impl ClientHandler {
     }
 
     /// Sends a broadcast message to all clients, including the one handled by this handler.
-    async fn send_broadcast_message(&mut self, msg: ServerMessage) {
+    fn send_broadcast_message(&mut self, msg: ServerMessage) {
         // we don't care if this fails becuase all it means is that there are no listeners, which
         // just means there aren't any clients, which is not really a problem.
         let _ = self.broadcast_messages_sender.send(msg);

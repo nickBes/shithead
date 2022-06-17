@@ -38,7 +38,7 @@ impl Turn {
                     }
                     Err(_) => {
                         // if a timeout has occured, we must switch to the next turn
-                        GAME_SERVER_STATE.turn_timeout(lobby_id);
+                        GAME_SERVER_STATE.turn_timeout(lobby_id).await;
                     }
                 }
             }),

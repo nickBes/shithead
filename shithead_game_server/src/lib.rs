@@ -4,6 +4,7 @@ mod game_server;
 mod lobby;
 mod messages;
 mod test_client;
+mod util;
 
 pub use cards::*;
 pub use client_handler::*;
