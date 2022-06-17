@@ -72,7 +72,15 @@ pub enum ClickedCardLocation {
     Trash,
 
     #[serde(rename_all = "camelCase")]
-    MyCards {
+    FromCardsInHand {
+        card_index: u32,
+    },
+
+    FromThreeUpCards {
+        card_index: u32,
+    },
+
+    FromThreeDownCards {
         card_index: u32,
     },
 }

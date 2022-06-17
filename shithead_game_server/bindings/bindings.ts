@@ -27,6 +27,6 @@ export type ExposedLobbyInfo=
 export type CardId=types.Usize;
 export type ServerMessage=({"handshake":types.HandshakeClientInfo;}|{"lobbies":(types.ExposedLobbyInfo)[];}|{"joinLobby":{"lobby_id":types.LobbyId;"players":(types.ExposedLobbyPlayerInfo)[];};}|{"error":string;}|{"playerJoinedLobby":types.ExposedLobbyPlayerInfo;}|{"playerLeftLobby":types.ClientId;}|{"lobbyOwnerChanged":{"new_owner_id":types.ClientId;};}|{"ownerLeftLobby":{"new_owner_id":types.ClientId;};}|"startGame"|{"initialCards":{"cards_in_hand":(types.CardId)[];"three_up_cards":(types.CardId)[];};}|{"giveTrash":types.ClientId;}|{"turn":types.ClientId;});
 export type U32=number;
-export type ClickedCardLocation=("trash"|{"myCards":{"cardIndex":types.U32;};});
+export type ClickedCardLocation=("trash"|{"fromCardsInHand":{"cardIndex":types.U32;};}|{"fromThreeUpCards":{"card_index":types.U32;};}|{"fromThreeDownCards":{"card_index":types.U32;};});
 export type ClientMessage=({"setUsername":string;}|"getLobbies"|{"joinLobby":types.LobbyId;}|"leaveLobby"|{"createLobby":{"lobbyName":string;};}|"startGame"|{"clickCard":types.ClickedCardLocation;});
 }

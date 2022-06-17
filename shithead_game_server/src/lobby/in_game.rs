@@ -37,16 +37,26 @@ impl InGameLobbyState {
     }
 }
 
-/// A reference to the in game lobby state, with some extra lobby information that is needed to
-/// perform operations on the lobby.
-pub struct InGameLobbyStateMut<'a> {
-    pub in_game_state: &'a mut InGameLobbyState,
-    pub lobby_data: &'a mut LobbyNonStateData,
+/// An in game lobby context, which allows peforming operations on an in game lobby.
+pub struct InGameLobbyContext<'a> {
+    in_game_state: &'a mut InGameLobbyState,
+    lobby_data: &'a mut LobbyNonStateData,
 }
 
-impl<'a> InGameLobbyStateMut<'a> {
+impl<'a> InGameLobbyContext<'a> {
+    /// Creates a new in game lobby state wrapper.
+    pub fn new(
+        in_game_state: &'a mut InGameLobbyState,
+        lobby_data: &'a mut LobbyNonStateData,
+    ) -> Self {
+        Self {
+            in_game_state,
+            lobby_data,
+        }
+    }
+
     /// Returns the current turn's player id.
-    pub fn current_turn_player_id(&self) -> ClientId{
+    pub fn current_turn_player_id(&self) -> ClientId {
         self.in_game_state.current_turn.player_id()
     }
 
@@ -144,9 +154,7 @@ impl<'a> InGameLobbyStateMut<'a> {
 
                 Ok(())
             }
-            ClickedCardLocation::MyCards { card_index } => {
-                todo!()
-            }
+            _ => todo!(),
         }
     }
 }

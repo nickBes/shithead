@@ -354,6 +354,13 @@ impl GameServerState {
             lobby.turn_timeout().await;
         }
     }
+
+    /// Tells the lobby with the given id that the timer for choosing the top 3 cards is over.
+    pub fn choose_top_3_timeout(&self, lobby_id: LobbyId) {
+        if let Some(mut lobby) = self.lobbies.get_mut(&lobby_id) {
+            lobby.choose_top_3_timeout();
+        }
+    }
 }
 
 /// The main game server.
@@ -428,6 +435,9 @@ pub enum GameServerError {
 
     #[error("you can't change your username while inside a lobby")]
     CantChangeUsernameInsideLobby,
+
+    #[error("no such card")]
+    NoSuchCard,
 }
 
 /// The result of joining a lobby, which contains some information about the lobby.
