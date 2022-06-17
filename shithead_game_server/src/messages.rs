@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use typescript_type_def::TypeDef;
 
 use crate::{
-    cards::CardId,
+    cards::{CardId, Card},
     game_server::{ClientId, ExposedLobbyInfo, ExposedLobbyPlayerInfo},
     lobby::LobbyId,
 };
@@ -88,7 +88,7 @@ pub enum ClickedCardLocation {
 #[test]
 fn export_bindings() {
     /// The types to export as typescript bindings
-    type Bindings = (ServerMessage, ClientMessage);
+    type Bindings = (ServerMessage, ClientMessage, Card);
 
     let mut buf = Vec::new();
     typescript_type_def::write_definition_file::<_, Bindings>(&mut buf, Default::default())

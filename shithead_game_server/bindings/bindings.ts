@@ -29,4 +29,7 @@ export type ServerMessage=({"handshake":types.HandshakeClientInfo;}|{"lobbies":(
 export type U32=number;
 export type ClickedCardLocation=("trash"|{"fromCardsInHand":{"cardIndex":types.U32;};}|{"fromThreeUpCards":{"card_index":types.U32;};}|{"fromThreeDownCards":{"card_index":types.U32;};});
 export type ClientMessage=({"setUsername":string;}|"getLobbies"|{"joinLobby":types.LobbyId;}|"leaveLobby"|{"createLobby":{"lobbyName":string;};}|"startGame"|{"clickCard":types.ClickedCardLocation;});
+export type Rank=("Two"|"Three"|"Four"|"Five"|"Six"|"Seven"|"Eight"|"Nine"|"Ten"|"Jack"|"Queen"|"King"|"Ace"|"Joker");
+export type Suit=("Spades"|"Hearts"|"Diamonds"|"Clubs");
+export type Card={"rank":types.Rank;"suit":types.Suit;};
 }

@@ -24,7 +24,7 @@ impl CardId {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TypeDef)]
 pub struct Card {
     pub rank: Rank,
     pub suit: Suit,
@@ -45,7 +45,7 @@ impl Card {
 }
 
 #[derive(
-    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, EnumIter,
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, EnumIter, TypeDef
 )]
 pub enum Rank {
     Two,
@@ -64,7 +64,7 @@ pub enum Rank {
     Joker,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, EnumIter, EnumCount)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, EnumIter, EnumCount, TypeDef)]
 pub enum Suit {
     Spades,
     Hearts,
