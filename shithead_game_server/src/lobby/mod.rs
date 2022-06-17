@@ -353,8 +353,8 @@ impl Lobby {
                         Ok(())
                     }
                     ClickedCardLocation::FromThreeUpCards { card_index } => {
-                        // the player clicked a card from his hand during the top 3 selection, move
-                        // that card to his top 3 cards.
+                        // the player clicked a card from his 3 up cards during the top 3 selection, move
+                        // that card to his hand.
                         let card_index = card_index as usize;
                         if card_index >= player.three_up_cards.len() {
                             return Err(GameServerError::NoSuchCard);

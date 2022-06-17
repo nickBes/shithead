@@ -136,9 +136,6 @@ impl<'a> InGameLobbyContext<'a> {
                     return Err(GameServerError::CantTakeTrashBecauseSomeCardsCanBePlayed);
                 }
 
-                // the player has finished his turn
-                self.turn_finished().await;
-
                 // give the player all the cards in the trash
                 self.lobby_data.player_list.give_cards_to_player(
                     current_turn_player_id,
@@ -151,6 +148,10 @@ impl<'a> InGameLobbyContext<'a> {
                     .lobby_data
                     .broadcast_messages_sender
                     .send(ServerMessage::GiveTrash(current_turn_player_id));
+
+
+                // the player has finished his turn
+                self.turn_finished().await;
 
                 Ok(())
             }

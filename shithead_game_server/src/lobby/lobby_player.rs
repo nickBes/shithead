@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use crate::cards::{Card, CardId, CardsDeck, CARDS_BY_ID, Rank};
+use crate::cards::{Card, CardId, CardsDeck, Rank, CARDS_BY_ID};
 
 #[derive(Debug, Serialize)]
 pub struct LobbyPlayer {
@@ -20,10 +20,7 @@ impl LobbyPlayer {
     }
 
     /// Returns an iterator over the ids of the player's cards which can be placed on the given card rank.
-    pub fn what_cards_can_be_placed_on(
-        &self,
-        on_rank: Rank,
-    ) -> CardsWhichCanBePlacedOn {
+    pub fn what_cards_can_be_placed_on(&self, on_rank: Rank) -> CardsWhichCanBePlacedOn {
         if !self.cards_in_hand.is_empty() {
             // if the player has some cards in his hand, he can only use them
             CardsWhichCanBePlacedOn::VisibleCards {
