@@ -7,6 +7,7 @@ mod client_handler;
 mod game_server;
 mod lobby;
 mod messages;
+mod util;
 
 async fn run() -> anyhow::Result<()> {
     let mut game_server = GameServer::new()
