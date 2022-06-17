@@ -56,24 +56,24 @@ impl std::fmt::Display for LobbyId {
 #[derive(Debug)]
 pub enum LobbyState {
     Waiting,
-    ChoosingTop3(ChoosingTop3State),
+    Choosing3Up(Choosing3UpState),
     GameStarted(InGameLobbyState),
 }
 
-/// A timer for the choosing top 3 lobby state.
+/// A timer for the choosing 3 up lobby state.
 #[derive(Debug)]
-pub struct ChoosingTop3State {
-    _timer: ChoosingTop3Timer,
+pub struct Choosing3UpState {
+    _timer: Choosing3UpTimer,
     deck: CardsDeck,
 }
 
-/// A timer for the choosing top 3 lobby state.
+/// A timer for the choosing 3 up lobby state.
 #[derive(Debug)]
-pub struct ChoosingTop3Timer {
+pub struct Choosing3UpTimer {
     task: tokio::task::JoinHandle<()>,
     notify: Arc<Notify>,
 }
-impl ChoosingTop3Timer {
+impl Choosing3UpTimer {
     /// Creates a new timer.
     pub fn new(lobby_id: LobbyId) -> Self {
         let notify = Arc::new(Notify::new());
@@ -82,13 +82,13 @@ impl ChoosingTop3Timer {
             task: tokio::spawn(async move {
                 match tokio::time::timeout(CHOOSE_TOP_3_DURATION, notify_clone.notified()).await {
                     Ok(()) => {
-                        // we got a notification, which means that all client chose their top 3
+                        // we got a notification, which means that all client chose their 3 up
                         // cards before the time was up, so we can just stop the timer.
                         return;
                     }
                     Err(_) => {
                         // if a timeout has occured, let the lobby know
-                        GAME_SERVER_STATE.choose_top_3_timeout(lobby_id);
+                        GAME_SERVER_STATE.choose_3_up_timeout(lobby_id);
                     }
                 }
             }),
@@ -263,9 +263,9 @@ impl Lobby {
         }
 
         // set the state of the lobby to an in game state.
-        self.state = LobbyState::ChoosingTop3(ChoosingTop3State {
+        self.state = LobbyState::Choosing3Up(Choosing3UpState {
             deck,
-            _timer: ChoosingTop3Timer::new(self.id()),
+            _timer: Choosing3UpTimer::new(self.id()),
         })
     }
 
@@ -289,10 +289,10 @@ impl Lobby {
         in_game_ctx.turn_timeout().await;
     }
 
-    /// The timer for choosing the top 3 cards is over.
-    pub fn choose_top_3_timeout(&mut self) {
-        let chooosing_top_3_state = match &mut self.state {
-            LobbyState::ChoosingTop3(state) => state,
+    /// The timer for choosing the 3 up cards is over.
+    pub fn choose_3_up_timeout(&mut self) {
+        let chooosing_3_up_state = match &mut self.state {
+            LobbyState::Choosing3Up(state) => state,
             _ => return,
         };
 
@@ -300,7 +300,7 @@ impl Lobby {
         // randomly chosen for them.
         let mut three_up_cards_of_modified_players = HashMap::new();
 
-        // make sure that all players have chosen their top 3 cards, and if they didn't, randomly
+        // make sure that all players have chosen their 3 up cards, and if they didn't, randomly
         // choose them.
         for (&player_id, player) in &mut self.data.player_list.players_by_id {
             if player.three_up_cards.len() < 3 {
@@ -310,7 +310,7 @@ impl Lobby {
                     player
                     .three_up_cards
                     .push(player.cards_in_hand.pop().expect(
-                        "failed to randomly choose top 3 cards for player because he ran out of cards",
+                        "failed to randomly choose 3 up cards for player because he ran out of cards",
                     ));
                 }
 
@@ -340,7 +340,7 @@ impl Lobby {
 
         // set the state of the lobby to an in game state.
         self.state = LobbyState::GameStarted(InGameLobbyState {
-            deck: std::mem::replace(&mut chooosing_top_3_state.deck, CardsDeck::empty()),
+            deck: std::mem::replace(&mut chooosing_3_up_state.deck, CardsDeck::empty()),
             trash: CardsDeck::empty(),
             current_turn: first_turn,
         })
@@ -354,7 +354,7 @@ impl Lobby {
     ) -> Result<(), GameServerError> {
         match &mut self.state {
             LobbyState::Waiting => return Err(GameServerError::GameHasntStartedYet),
-            LobbyState::ChoosingTop3(_) => {
+            LobbyState::Choosing3Up(_) => {
                 let player = self
                     .data
                     .player_list
@@ -362,8 +362,8 @@ impl Lobby {
                     .ok_or(GameServerError::NotInALobby)?;
                 match clicked_card_location {
                     ClickedCardLocation::FromCardsInHand { card_index } => {
-                        // the player clicked a card from his hand during the top 3 selection, move
-                        // that card to his top 3 cards.
+                        // the player clicked a card from his hand during the 3 up selection, move
+                        // that card to his 3 up cards.
                         let card_index = card_index as usize;
                         if card_index >= player.cards_in_hand.len() {
                             return Err(GameServerError::NoSuchCard);
@@ -381,7 +381,7 @@ impl Lobby {
                         Ok(())
                     }
                     ClickedCardLocation::FromThreeUpCards { card_index } => {
-                        // the player clicked a card from his 3 up cards during the top 3 selection, move
+                        // the player clicked a card from his 3 up cards during the 3 up selection, move
                         // that card to his hand.
                         let card_index = card_index as usize;
                         if card_index >= player.three_up_cards.len() {
@@ -400,7 +400,7 @@ impl Lobby {
                         Ok(())
                     }
                     _ => {
-                        // if the player clicked anything else during the top 3 selection, no need
+                        // if the player clicked anything else during the 3 up selection, no need
                         // to do anything.
                         Ok(())
                     }

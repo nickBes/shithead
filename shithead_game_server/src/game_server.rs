@@ -354,10 +354,10 @@ impl GameServerState {
         }
     }
 
-    /// Tells the lobby with the given id that the timer for choosing the top 3 cards is over.
-    pub fn choose_top_3_timeout(&self, lobby_id: LobbyId) {
+    /// Tells the lobby with the given id that the timer for choosing the 3 up cards is over.
+    pub fn choose_3_up_timeout(&self, lobby_id: LobbyId) {
         if let Some(mut lobby) = self.lobbies.get_mut(&lobby_id) {
-            lobby.choose_top_3_timeout();
+            lobby.choose_3_up_timeout();
         }
     }
 }
