@@ -272,7 +272,7 @@ impl ClientHandler {
                         // the player is not in a lobby
                         debug!(
                             "can't remove player #{} from lobby because he's not in a lobby",
-                            self.client_id, 
+                            self.client_id,
                         );
                         self.send_message(&ServerMessage::Error(
                             GameServerError::NotInALobby.to_string(),
@@ -291,6 +291,30 @@ impl ClientHandler {
                         {
                             self.send_message(&ServerMessage::Error(err.to_string()))
                                 .await?;
+                        }
+                    }
+                    None => {
+                        // the player is not in a lobby
+                        self.send_message(&ServerMessage::Error(
+                            GameServerError::NotInALobby.to_string(),
+                        ))
+                        .await?;
+                    }
+                }
+            }
+            ClientMessage::GetCardsInHand => {
+                match self.lobby_id {
+                    Some(lobby_id) => {
+                        // if the client is in a lobby, try to click the desired card
+                        match GAME_SERVER_STATE.get_cards_in_hand(self.client_id, lobby_id) {
+                            Ok(cards_in_hand) => {
+                                self.send_message(&ServerMessage::CardsInHand(cards_in_hand))
+                                    .await?
+                            }
+                            Err(err) => {
+                                self.send_message(&ServerMessage::Error(err.to_string()))
+                                    .await?
+                            }
                         }
                     }
                     None => {

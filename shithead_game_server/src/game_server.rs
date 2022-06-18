@@ -13,6 +13,7 @@ use tokio::{
 use typescript_type_def::TypeDef;
 
 use crate::{
+    cards::CardId,
     client_handler::handle_client,
     lobby::{Lobby, LobbyId, LobbyState, RemovePlayerFromLobbyResult, MAX_PLAYERS_IN_LOBBY},
     messages::{ClickedCardLocation, ServerMessage},
@@ -86,6 +87,17 @@ impl GameServerState {
     ) -> Result<dashmap::mapref::one::RefMut<LobbyId, Lobby>, GameServerError> {
         self.lobbies
             .get_mut(&lobby_id)
+            .ok_or(GameServerError::NoSuchLobby)
+    }
+
+    /// Returns a reference to the lobby with the given id.
+    /// If such a lobby does not exist, returns a [`GameServerError::NoSuchLobby`] error.
+    fn get_lobby(
+        &self,
+        lobby_id: LobbyId,
+    ) -> Result<dashmap::mapref::one::Ref<LobbyId, Lobby>, GameServerError> {
+        self.lobbies
+            .get(&lobby_id)
             .ok_or(GameServerError::NoSuchLobby)
     }
 
@@ -315,25 +327,8 @@ impl GameServerState {
             .broadcast_messages_sender()
             .send(ServerMessage::StartGame);
 
-        // starts the game and gives players their initial cards, so after it we must tell each
-        // player his cards
+        // starts the game and gives players their initial cards
         lobby.start_game();
-
-        for player_id in lobby.player_ids() {
-            let client_info = self.get_client_in_lobby(player_id);
-
-            // the information about this client as a lobby player
-            let lobby_player_info = lobby
-                .get_player(player_id)
-                .ok_or(GameServerError::NotInALobby)?;
-
-            client_info
-                .specific_messages_sender
-                .send(ServerMessage::InitialCards {
-                    cards_in_hand: lobby_player_info.cards_in_hand.clone(),
-                })
-                .unwrap();
-        }
 
         Ok(())
     }
@@ -360,6 +355,16 @@ impl GameServerState {
         if let Some(mut lobby) = self.lobbies.get_mut(&lobby_id) {
             lobby.choose_3_up_timeout();
         }
+    }
+
+    /// Returns the cards in hand of the given player in the given lobby.
+    pub fn get_cards_in_hand(
+        &self,
+        client_id: ClientId,
+        lobby_id: LobbyId,
+    ) -> Result<Vec<CardId>, GameServerError> {
+        let lobby = self.get_lobby(lobby_id)?;
+        lobby.get_cards_in_hand(client_id)
     }
 }
 
