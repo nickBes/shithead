@@ -1,5 +1,5 @@
 use crate::{
-    cards::{CardsDeck, Rank, CARDS_BY_ID},
+    cards::{CardsDeck, Rank, CARDS_BY_ID, CardId},
     game_server::{ClientId, GameServerError},
     messages::{ClickedCardLocation, ServerMessage},
 };

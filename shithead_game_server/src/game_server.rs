@@ -331,7 +331,6 @@ impl GameServerState {
                 .specific_messages_sender
                 .send(ServerMessage::InitialCards {
                     cards_in_hand: lobby_player_info.cards_in_hand.clone(),
-                    three_up_cards: lobby_player_info.three_up_cards.clone(),
                 })
                 .unwrap();
         }
@@ -356,10 +355,10 @@ impl GameServerState {
         }
     }
 
-    /// Tells the lobby with the given id that the timer for choosing the top 3 cards is over.
-    pub fn choose_top_3_timeout(&self, lobby_id: LobbyId) {
+    /// Tells the lobby with the given id that the timer for choosing the 3 up cards is over.
+    pub fn choose_3_up_timeout(&self, lobby_id: LobbyId) {
         if let Some(mut lobby) = self.lobbies.get_mut(&lobby_id) {
-            lobby.choose_top_3_timeout();
+            lobby.choose_3_up_timeout();
         }
     }
 }
