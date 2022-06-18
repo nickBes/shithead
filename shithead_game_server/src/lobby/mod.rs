@@ -95,6 +95,11 @@ impl Choosing3UpTimer {
             notify,
         }
     }
+
+    pub async fn stop(self) {
+        self.notify.notify_one();
+        self.task.await.unwrap();
+    }
 }
 
 /// Lobby data that is not state dependent.
@@ -219,6 +224,11 @@ impl Lobby {
         // remove the player
         if self.data.player_list.remove(player_id).is_none() {
             return RemovePlayerFromLobbyResult::PlayerWasntInLobby;
+        }
+
+        // if there is only 1 player left, stop the game.
+        if self.players_amount() == 1 {
+            self.stop_game().await;
         }
 
         // if the removed player was the owner
@@ -414,6 +424,19 @@ impl Lobby {
                     .click_card(client_id, clicked_card_location)
                     .await
             }
+        }
+    }
+
+    /// Stops the game, if the lobby is in game
+    pub async fn stop_game(&mut self){
+        match std::mem::replace(&mut self.state, LobbyState::Waiting){
+            LobbyState::Waiting => {},
+            LobbyState::Choosing3Up(chooosing_3_up_state) => {
+                chooosing_3_up_state._timer.stop().await
+            },
+            LobbyState::GameStarted(InGameLobbyState{ current_turn, .. }) => {
+                current_turn.stop_next_turn_timer().await;
+            },
         }
     }
 }
