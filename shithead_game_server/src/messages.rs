@@ -41,10 +41,12 @@ pub enum ServerMessage {
 
     MovePlayerCardFromThreeUpToHand {
         up_three_card_index: usize,
+        player_id: ClientId,
     },
 
     MovePlayerCardFromHandToThreeUp {
         hand_card_index: usize,
+        player_id: ClientId,
     },
 
     TheeUpSelectionDone {

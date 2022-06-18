@@ -375,6 +375,7 @@ impl Lobby {
                         let _ = self.broadcast_messages_sender().send(
                             ServerMessage::MovePlayerCardFromHandToThreeUp {
                                 hand_card_index: card_index,
+                                player_id: client_id,
                             },
                         );
 
@@ -394,6 +395,7 @@ impl Lobby {
                         let _ = self.broadcast_messages_sender().send(
                             ServerMessage::MovePlayerCardFromThreeUpToHand {
                                 up_three_card_index: card_index,
+                                player_id: client_id,
                             },
                         );
 
