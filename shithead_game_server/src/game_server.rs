@@ -233,6 +233,7 @@ impl GameServerState {
     pub fn exposed_lobby_list(&self) -> Vec<ExposedLobbyInfo> {
         self.lobbies
             .iter()
+            .filter(|entry| entry.is_waiting())
             .map(|entry| {
                 let lobby = entry.value();
                 let lobby_id = *entry.key();
