@@ -35,9 +35,7 @@ pub enum ServerMessage {
 
     StartGame,
 
-    InitialCards {
-        cards_in_hand: Vec<CardId>,
-    },
+    CardsInHand(Vec<CardId>),
 
     MovePlayerCardFromThreeUpToHand {
         up_three_card_index: usize,
@@ -71,7 +69,10 @@ pub enum ClientMessage {
         lobby_name: String,
     },
 
+    GetCardsInHand,
+
     StartGame,
+
     ClickCard(ClickedCardLocation),
 }
 

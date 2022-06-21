@@ -25,10 +25,9 @@ export type ExposedLobbyInfo=
  */
 {"name":string;"id":types.LobbyId;"players":(types.ExposedLobbyPlayerInfo)[];"owner_id":types.ClientId;};
 export type CardId=types.Usize;
-export type ServerMessage=({"handshake":types.HandshakeClientInfo;}|{"lobbies":(types.ExposedLobbyInfo)[];}|{"joinLobby":{"lobby_id":types.LobbyId;"players":(types.ExposedLobbyPlayerInfo)[];};}|{"error":string;}|{"playerJoinedLobby":types.ExposedLobbyPlayerInfo;}|{"playerLeftLobby":types.ClientId;}|{"lobbyOwnerChanged":{"new_owner_id":types.ClientId;};}|{"ownerLeftLobby":{"new_owner_id":types.ClientId;};}|"startGame"|{"initialCards":{"cards_in_hand":(types.CardId)[];"three_up_cards":(types.CardId)[];};}|{"giveTrash":types.ClientId;}|{"turn":types.ClientId;});
-export type U32=number;
-export type ClickedCardLocation=("trash"|{"fromCardsInHand":{"cardIndex":types.U32;};}|{"fromThreeUpCards":{"card_index":types.U32;};}|{"fromThreeDownCards":{"card_index":types.U32;};});
-export type ClientMessage=({"setUsername":string;}|"getLobbies"|{"joinLobby":types.LobbyId;}|"leaveLobby"|{"createLobby":{"lobbyName":string;};}|"startGame"|{"clickCard":types.ClickedCardLocation;});
+export type ServerMessage=({"handshake":types.HandshakeClientInfo;}|{"lobbies":(types.ExposedLobbyInfo)[];}|{"joinLobby":{"lobby_id":types.LobbyId;"players":(types.ExposedLobbyPlayerInfo)[];};}|{"error":string;}|{"playerJoinedLobby":types.ExposedLobbyPlayerInfo;}|{"playerLeftLobby":types.ClientId;}|{"lobbyOwnerChanged":{"new_owner_id":types.ClientId;};}|{"ownerLeftLobby":{"new_owner_id":types.ClientId;};}|"startGame"|{"cardsInHand":(types.CardId)[];}|{"movePlayerCardFromThreeUpToHand":{"up_three_card_index":types.Usize;"player_id":types.ClientId;};}|{"movePlayerCardFromHandToThreeUp":{"hand_card_index":types.Usize;"player_id":types.ClientId;};}|{"theeUpSelectionDone":{"three_up_cards_of_modified_players":Record<types.ClientId,(types.CardId)[]>;};}|{"giveTrash":types.ClientId;}|{"turn":types.ClientId;});
+export type ClickedCardLocation=("trash"|{"fromCardsInHand":{"cardIndex":types.Usize;};}|{"fromThreeUpCards":{"card_index":types.Usize;};}|{"fromThreeDownCards":{"card_index":types.Usize;};});
+export type ClientMessage=({"setUsername":string;}|"getLobbies"|{"joinLobby":types.LobbyId;}|"leaveLobby"|{"createLobby":{"lobbyName":string;};}|"getCardsInHand"|"startGame"|{"clickCard":types.ClickedCardLocation;});
 export type Rank=("Two"|"Three"|"Four"|"Five"|"Six"|"Seven"|"Eight"|"Nine"|"Ten"|"Jack"|"Queen"|"King"|"Ace"|"Joker");
 export type Suit=("Spades"|"Hearts"|"Diamonds"|"Clubs");
 export type Card={"rank":types.Rank;"suit":types.Suit;};

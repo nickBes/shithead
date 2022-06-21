@@ -416,6 +416,15 @@ impl Lobby {
             }
         }
     }
+
+    /// Returns the cards in hand of the given player.
+    pub fn get_cards_in_hand(
+        &self,
+        player_id: ClientId,
+    ) -> Result<Vec<CardId>, GameServerError> {
+        let player = self.get_player(player_id).ok_or(GameServerError::NotInALobby)?;
+        Ok(player.cards_in_hand.clone())
+    }
 }
 
 /// The result of removing a player from a lobby.
