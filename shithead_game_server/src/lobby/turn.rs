@@ -13,6 +13,9 @@ pub struct NextTurnTimer {
 }
 impl NextTurnTimer {
     pub async fn stop(self) {
+        // notifying this `Notify` object will notify the task because the task is waiting to
+        // receive a notification on it, and when the task will receive the notification it will
+        // stop.
         self.notify.notify_one();
         self.task.await.unwrap();
     }
