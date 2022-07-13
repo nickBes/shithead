@@ -5,6 +5,7 @@ mod lobby;
 mod messages;
 mod test_client;
 mod util;
+mod timeout_scheduler;
 
 pub use cards::*;
 pub use client_handler::*;

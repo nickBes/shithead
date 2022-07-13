@@ -8,6 +8,7 @@ mod game_server;
 mod lobby;
 mod messages;
 mod util;
+mod timeout_scheduler;
 
 async fn run() -> anyhow::Result<()> {
     let mut game_server = GameServer::new()
