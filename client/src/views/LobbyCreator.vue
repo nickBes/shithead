@@ -26,7 +26,7 @@ onMounted(() => {
         if (isMatching({joinLobby: P.any}, message)) {
                 let lobbyId = message.joinLobby.lobby_id
                 states.lobbyId = lobbyId
-                states.players.value.set(states.id as types.ClientId, states.name as string)
+                states.players.value.set(states.id as types.ClientId, states.name.value as string)
                 message.joinLobby.players.forEach(player => states.players.value.set(player.id, player.username))
                 states.isOwner.value = true
 

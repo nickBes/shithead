@@ -20,7 +20,7 @@ function getLobbies() {
 function updateUsername() {
     if (username.value != undefined) {
         states.gameSocket?.send({setUsername: username.value})
-        states.name = username.value
+        states.name.value = username.value
     }
 }
 
@@ -50,7 +50,7 @@ const filteredLobbies = computed(() => {
 </script>
 
 <template>
-    <p>Hello, {{states.name ?? ('user#' + states.id)}}.
+    <p>Hello, {{states.name.value}}
     <br/>This is the home page</p>
     <form @submit.prevent="updateUsername">
         <input v-model.lazy.trim="username" type="text" placeholder="new username"/>

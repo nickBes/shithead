@@ -21,5 +21,5 @@ export const states = {
     players: ref<Map<types.ClientId, string>>(new Map()),
     id: undefined as (types.ClientId | undefined),
     isOwner: ref<boolean>(false),
-    name: undefined as (string | undefined),
+    name: ref<string | null>(),
 }

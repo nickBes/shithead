@@ -39,7 +39,7 @@ onMounted(() => {
                 .with({joinLobby: P.any}, (msg) => { // means we could join
                     states.lobbyId = lobbyId
                     notification.success({title: "Successfully joined a lobby", ...notificationSettings})
-                    states.players.value.set(states.id as types.ClientId, states.name as string)
+                    states.players.value.set(states.id as types.ClientId, states.name.value as string)
 
                     msg.joinLobby.players.forEach(player => states.players.value.set(player.id, player.username))
                     sk.messageHandlers.delete("addToLobby")
@@ -52,7 +52,7 @@ onMounted(() => {
         })
         states.gameSocket?.send({joinLobby: lobbyId})
     } else {
-        states.players.value.set(states.id as types.ClientId, states.name as string)
+        states.players.value.set(states.id as types.ClientId, states.name.value as string)
         states.lobbyState.value = 'inLobby'
     }
 })
