@@ -4,6 +4,7 @@ import { isMatching, P } from "ts-pattern"
 import { onMounted, onUnmounted, ref } from "vue"
 import { useRouter } from "vue-router"
 import { useNotification } from "naive-ui"
+import type types from "@/bindings/bindings"
 
 const router = useRouter()
 let lobbyName = ref<string>()
@@ -24,7 +25,8 @@ onMounted(() => {
     states.gameSocket?.messageHandlers.set("createdLobby", (message) => {
         if (isMatching({joinLobby: P.any}, message)) {
                 let lobbyId = message.joinLobby.lobby_id
-                states.lobby = lobbyId
+                states.lobbyId = lobbyId
+                states.players.value.set(states.id as types.ClientId, states.name as string)
                 message.joinLobby.players.forEach(player => states.players.value.set(player.id, player.username))
                 states.isOwner.value = true
 
