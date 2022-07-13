@@ -4,8 +4,10 @@ import { P, isMatching } from 'ts-pattern';
 import { useNotification } from "naive-ui"
 import Socket, { type ServerCallback } from '@/game/socket'
 import { notificationSettings, states } from "@/game/states"
+import { useRouter } from 'vue-router'
 
 const notification = useNotification()
+const router = useRouter()
 
 const onSocketOpen : ServerCallback = (socket) => {
     notification.success({title: "Connected to server", ...notificationSettings})
@@ -29,6 +31,8 @@ const onSocketOpen : ServerCallback = (socket) => {
 
 const onSocketClose : ServerCallback = (socket) => {
     // states.lastMessage.value = "Server connection closed. Trying to reconnect."
+    notification.error({title: "Server connection was closed", ...notificationSettings})
+    router.push("/")
     socket.messageHandlers.clear()
 }
 
