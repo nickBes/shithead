@@ -14,7 +14,7 @@ const onSocketOpen : ServerCallback = (socket) => {
     socket.messageHandlers.set("getClientId", (message, sk) => {
         if (isMatching({handshake: P.any}, message)) {
             states.id = message.handshake.id
-            states.name = message.handshake.username
+            states.name.value = message.handshake.username
             sk.messageHandlers.delete("getClientId")
         }
     })
