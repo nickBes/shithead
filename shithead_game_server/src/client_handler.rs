@@ -404,7 +404,7 @@ impl ClientHandler {
 }
 
 /// Handles a new client that had just connected to the game server's tcp listener.
-pub async fn handle_client(stream: TcpStream, addr: SocketAddr) -> anyhow::Result<()> {
+pub async fn handle_client(stream: TcpStream, _addr: SocketAddr) -> anyhow::Result<()> {
     let websocket = tokio_tungstenite::accept_async(stream)
         .await
         .context("failed to accept websocket client {}")?;

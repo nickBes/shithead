@@ -3,30 +3,28 @@ mod lobby_player;
 mod ordered_lobby_players;
 mod turn;
 
-use crate::{
-    cards::{CardsDeck, Rank, CARDS_BY_ID},
-    game_server::{ExposedLobbyPlayerInfo, GameServerError, GAME_SERVER_STATE},
-    messages::ClickedCardLocation,
-    some_or_return,
-};
-
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use serde::{Deserialize, Serialize};
+use set_timeout::CancellationToken;
 use tokio::sync::{broadcast, Notify};
 use typescript_type_def::TypeDef;
-
-use crate::{
-    cards::CardId,
-    game_server::{ClientId, BROADCAST_CHANNEL_CAPACITY},
-    messages::ServerMessage,
-};
 
 use self::{
     in_game::{InGameLobbyContext, InGameLobbyState},
     lobby_player::LobbyPlayer,
     ordered_lobby_players::OrderedLobbyPlayers,
     turn::Turn,
+};
+use crate::{
+    cards::{CardId, CardsDeck, Rank, CARDS_BY_ID},
+    game_server::{
+        ClientId, ExposedLobbyPlayerInfo, GameServerError, BROADCAST_CHANNEL_CAPACITY,
+        GAME_SERVER_STATE,
+    },
+    messages::{ClickedCardLocation, ServerMessage},
+    some_or_return,
+    util::TIMEOUT_SCHEDULER,
 };
 
 pub const MAX_PLAYERS_IN_LOBBY: usize = 6;
@@ -40,8 +38,8 @@ pub const CHOOSE_TOP_3_DURATION: Duration = Duration::from_secs(20);
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Hash, TypeDef)]
 pub struct LobbyId(usize);
 impl LobbyId {
-    /// Creates a LobbyId from a raw id. Only call this on valid lobby ids created by getting the
-    /// next lobby id from the server's state.
+    /// Creates a LobbyId from a raw id. Only call this on valid lobby ids
+    /// created by getting the next lobby id from the server's state.
     pub fn from_raw(raw: usize) -> Self {
         Self(raw)
     }
@@ -63,45 +61,13 @@ pub enum LobbyState {
 /// A timer for the choosing 3 up lobby state.
 #[derive(Debug)]
 pub struct Choosing3UpState {
-    _timer: Choosing3UpTimer,
+    timeout_cancellation_token: CancellationToken,
     deck: CardsDeck,
 }
-
-/// A timer for the choosing 3 up lobby state.
-#[derive(Debug)]
-pub struct Choosing3UpTimer {
-    task: tokio::task::JoinHandle<()>,
-    notify: Arc<Notify>,
-}
-impl Choosing3UpTimer {
-    /// Creates a new timer.
-    pub fn new(lobby_id: LobbyId) -> Self {
-        let notify = Arc::new(Notify::new());
-        let notify_clone = Arc::clone(&notify);
-        Self {
-            task: tokio::spawn(async move {
-                match tokio::time::timeout(CHOOSE_TOP_3_DURATION, notify_clone.notified()).await {
-                    Ok(()) => {
-                        // we got a notification, which means that all client chose their 3 up
-                        // cards before the time was up, so we can just stop the timer.
-                        return;
-                    }
-                    Err(_) => {
-                        // if a timeout has occured, let the lobby know
-                        GAME_SERVER_STATE.choose_3_up_timeout(lobby_id);
-                    }
-                }
-            }),
-            notify,
-        }
-    }
-
-    pub async fn stop(self) {
-        // notifying this `Notify` object will notify the task because the task is waiting to
-        // receive a notification on it, and when the task will receive the notification it will
-        // stop.
-        self.notify.notify_one();
-        self.task.await.unwrap();
+impl Choosing3UpState{
+    /// Cancels the choosing 3 up timer.
+    pub fn cancel_timer(self){
+        TIMEOUT_SCHEDULER.cancel_timeout(self.timeout_cancellation_token)
     }
 }
 
@@ -191,7 +157,8 @@ impl Lobby {
         self.player_ids().map(ExposedLobbyPlayerInfo::new).collect()
     }
 
-    /// Returns an in game lobby context for this lobby, if it is in an in game state.
+    /// Returns an in game lobby context for this lobby, if it is in an in game
+    /// state.
     fn in_game_context(&mut self) -> Option<InGameLobbyContext> {
         match &mut self.state {
             LobbyState::GameStarted(state) => Some(InGameLobbyContext::new(state, &mut self.data)),
@@ -202,8 +169,9 @@ impl Lobby {
     /// Adds a player to the lobby without performing any checks.
     /// The checks are done in `GameServerState::join_lobby`.
     ///
-    /// The player starts with no cards at all, since assuming checks have been done, the lobby
-    /// should be in the `LobbyState::Waiting` state, in which no players have cards.
+    /// The player starts with no cards at all, since assuming checks have been
+    /// done, the lobby should be in the `LobbyState::Waiting` state, in
+    /// which no players have cards.
     pub fn add_player(&mut self, player_id: ClientId) {
         self.data
             .player_list
@@ -211,13 +179,14 @@ impl Lobby {
     }
 
     /// Removes the player with the given id from the lobby.
-    /// If that player was the current turn, moves the current turn to the next player.
-    /// If that player was the owner, makes another player the owner.
+    /// If that player was the current turn, moves the current turn to the next
+    /// player. If that player was the owner, makes another player the
+    /// owner.
     pub async fn remove_player(&mut self, player_id: ClientId) -> RemovePlayerFromLobbyResult {
         // if the removed player was the current turn, move the turn to the next player.
         //
-        // this must be done before removing the player, because if we first removed it there would
-        // be no way to find who's the next player after him.
+        // this must be done before removing the player, because if we first removed it
+        // there would be no way to find who's the next player after him.
         if let Some(in_game_ctx) = self.in_game_context() {
             if in_game_ctx.current_turn_player_id() == player_id {
                 self.turn_finished().await
@@ -240,11 +209,11 @@ impl Lobby {
                 None => {
                     // if there are no players left
                     RemovePlayerFromLobbyResult::LobbyNowEmpty
-                }
+                },
                 Some(new_owner_id) => {
                     self.data.owner_id = new_owner_id;
                     RemovePlayerFromLobbyResult::NewOwner(new_owner_id)
-                }
+                },
             }
         } else {
             if self.is_empty() {
@@ -276,9 +245,15 @@ impl Lobby {
         }
 
         // set the state of the lobby to an in game state.
+        let lobby_id = self.id();
         self.state = LobbyState::Choosing3Up(Choosing3UpState {
             deck,
-            _timer: Choosing3UpTimer::new(self.id()),
+            timeout_cancellation_token: TIMEOUT_SCHEDULER.set_timeout(
+                CHOOSE_TOP_3_DURATION,
+                async move {
+                    GAME_SERVER_STATE.choose_3_up_timeout(lobby_id);
+                },
+            ),
         })
     }
 
@@ -294,8 +269,8 @@ impl Lobby {
         in_game_ctx.advance_turn_and_update_players().await;
     }
 
-    /// The current turn has timed out, give the current turn player the trash or play one of his
-    /// cards, and advance to the next turn.
+    /// The current turn has timed out, give the current turn player the trash
+    /// or play one of his cards, and advance to the next turn.
     pub async fn turn_timeout(&mut self) {
         let mut in_game_ctx = some_or_return!(self.in_game_context());
 
@@ -309,16 +284,16 @@ impl Lobby {
             _ => return,
         };
 
-        // the 3 up cards of all clients who didn't choose their 3 up cards, and some cards were
-        // randomly chosen for them.
+        // the 3 up cards of all clients who didn't choose their 3 up cards, and some
+        // cards were randomly chosen for them.
         let mut three_up_cards_of_modified_players = HashMap::new();
 
-        // make sure that all players have chosen their 3 up cards, and if they didn't, randomly
-        // choose them.
+        // make sure that all players have chosen their 3 up cards, and if they didn't,
+        // randomly choose them.
         for (&player_id, player) in &mut self.data.player_list.players_by_id {
             if player.three_up_cards.len() < 3 {
-                // if the player doesn't have 3 up cards, choose a bunch of random cards from his
-                // hand until he has enough.
+                // if the player doesn't have 3 up cards, choose a bunch of random cards from
+                // his hand until he has enough.
                 while player.three_up_cards.len() < 3 {
                     player
                     .three_up_cards
@@ -332,8 +307,8 @@ impl Lobby {
             }
         }
 
-        // update all players about the face that the 3 up selection is over and about the modified
-        // players.
+        // update all players about the face that the 3 up selection is over and about
+        // the modified players.
         let _ = self
             .data
             .broadcast_messages_sender
@@ -393,10 +368,10 @@ impl Lobby {
                         );
 
                         Ok(())
-                    }
+                    },
                     ClickedCardLocation::FromThreeUpCards { card_index } => {
-                        // the player clicked a card from his 3 up cards during the 3 up selection, move
-                        // that card to his hand.
+                        // the player clicked a card from his 3 up cards during the 3 up selection,
+                        // move that card to his hand.
                         let card_index = card_index as usize;
                         if card_index >= player.three_up_cards.len() {
                             return Err(GameServerError::NoSuchCard);
@@ -413,40 +388,39 @@ impl Lobby {
                         );
 
                         Ok(())
-                    }
+                    },
                     _ => {
                         // if the player clicked anything else during the 3 up selection, no need
                         // to do anything.
                         Ok(())
-                    }
+                    },
                 }
-            }
+            },
             LobbyState::GameStarted(in_game_state) => {
                 let mut in_game_ctx = InGameLobbyContext::new(in_game_state, &mut self.data);
                 in_game_ctx
                     .click_card(client_id, clicked_card_location)
                     .await
-            }
+            },
         }
     }
 
     /// Returns the cards in hand of the given player.
-    pub fn get_cards_in_hand(
-        &self,
-        player_id: ClientId,
-    ) -> Result<Vec<CardId>, GameServerError> {
-        let player = self.get_player(player_id).ok_or(GameServerError::NotInALobby)?;
+    pub fn get_cards_in_hand(&self, player_id: ClientId) -> Result<Vec<CardId>, GameServerError> {
+        let player = self
+            .get_player(player_id)
+            .ok_or(GameServerError::NotInALobby)?;
         Ok(player.cards_in_hand.clone())
     }
 
     /// Stops the game, if the lobby is in game
-    pub async fn stop_game(&mut self){
-        match std::mem::replace(&mut self.state, LobbyState::Waiting){
+    pub async fn stop_game(&mut self) {
+        match std::mem::replace(&mut self.state, LobbyState::Waiting) {
             LobbyState::Waiting => {},
             LobbyState::Choosing3Up(chooosing_3_up_state) => {
-                chooosing_3_up_state._timer.stop().await
+                chooosing_3_up_state.cancel_timer();
             },
-            LobbyState::GameStarted(InGameLobbyState{ current_turn, .. }) => {
+            LobbyState::GameStarted(InGameLobbyState { current_turn, .. }) => {
                 current_turn.stop_next_turn_timer().await;
             },
         }
